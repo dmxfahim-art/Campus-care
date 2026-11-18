@@ -1,0 +1,63 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { MongoMemoryServer } from 'mongodb-memory-server';
+
+test('auth, ownership, status, notifications and support', async () => {
+  const mongo = await MongoMemoryServer.create();
+  process.env.MONGODB_URI = mongo.getUri();
+  process.env.MONGODB_DB = 'campuscare_test';
+  const { api } = await import('../src/server/api');
+  const base = 'http://localhost:4321';
+  const send = async (path: string, method = 'GET', body?: unknown, cookie = '') => {
+    const response = await api.request(base + path, { method, headers: { ...(body ? { 'content-type': 'application/json' } : {}), ...(cookie ? { cookie } : {}) }, body: body ? JSON.stringify(body) : undefined });
+    return { response, data: await response.json() };
+  };
+  try {
+    const a = await send('/api/auth/register', 'POST', { name: 'First Student', studentId: 'S1', email: 'first@example.com', password: 'password123' });
+    assert.equal(a.response.status, 201);
+    const cookieA = a.response.headers.get('set-cookie')!.split(';')[0];
+    const b = await send('/api/auth/register', 'POST', { name: 'Second Student', studentId: 'S2', email: 'second@example.com', password: 'password123' });
+    assert.equal(b.response.status, 201);
+    const cookieB = b.response.headers.get('set-cookie')!.split(';')[0];
+    const created = await send('/api/complaints', 'POST', { title: 'Broken projector', description: 'The projector does not turn on.', category: 'Classroom', location: 'Room 201' }, cookieA);
+    assert.equal(created.response.status, 201);
+    const id = created.data.complaint.id;
+    assert.equal((await send(`/api/complaints/${id}`, 'GET', undefined, cookieB)).response.status, 404);
+    assert.equal((await send('/api/complaints', 'GET', undefined, cookieB)).data.total, 0);
+    assert.equal((await send(`/api/complaints/${id}/status`, 'PATCH', { status: 'Resolved' }, cookieA)).response.status, 403);
+    const profile = await send('/api/auth/me', 'PATCH', { name: 'Updated Student', studentId: 'S1', email: 'first@example.com' }, cookieA);
+    assert.equal(profile.data.user.name, 'Updated Student');
+    assert.equal((await send('/api/complaints', 'GET', undefined, cookieA)).data.total, 1);
+    assert.equal((await send('/api/support', 'POST', { subject: 'Need assistance', message: 'Please help me understand this complaint.' }, cookieA)).response.status, 201);
+    assert.equal((await send('/api/support', 'GET', undefined, cookieA)).data.items.length, 1);
+    const { getDb } = await import('../src/server/db');
+    const { hashPassword } = await import('../src/server/security');
+    await (await getDb()).collection('users').insertOne({ name: 'Campus Admin', studentId: 'ADM1', email: 'admin@example.com', role: 'admin', passwordHash: await hashPassword('password123') });
+    const login = await send('/api/auth/login', 'POST', { email: 'admin@example.com', password: 'password123' });
+    assert.equal(login.response.status, 200);
+    const adminCookie = login.response.headers.get('set-cookie')!.split(';')[0];
+    const staff = await send('/api/staff', 'POST', { name: 'IT Staff', studentId: 'STAFF1', email: 'staff@example.com', password: 'password123', role: 'staff', departmentId: 'IT' }, adminCookie);
+    assert.equal(staff.response.status, 201);
+    const staffLogin = await send('/api/auth/login', 'POST', { email: 'staff@example.com', password: 'password123' });
+    const staffCookie = staffLogin.response.headers.get('set-cookie')!.split(';')[0];
+    assert.equal((await send(`/api/complaints/${id}`, 'GET', undefined, staffCookie)).response.status, 404);
+    assert.equal((await send(`/api/complaints/${id}/assign`, 'PATCH', { departmentId: 'IT' }, adminCookie)).response.status, 200);
+    assert.equal((await send(`/api/complaints/${id}/status`, 'PATCH', { status: 'Resolved' }, staffCookie)).response.status, 200);
+    const notices = await send('/api/notifications', 'GET', undefined, cookieA);
+    assert.equal(notices.data.items.length, 2);
+    assert.equal((await send(`/api/notifications/${notices.data.items[0].id}/read`, 'PATCH', { read: true }, cookieA)).response.status, 200);
+    assert.equal((await send('/api/notifications/read-all', 'PATCH', undefined, cookieA)).response.status, 200);
+    assert.equal((await send('/api/dashboard/summary', 'GET', undefined, cookieA)).data.resolved, 1);
+    assert.equal((await send(`/api/complaints/${id}/feedback`, 'POST', { rating: 5, comment: 'Fixed' }, cookieA)).response.status, 200);
+    const form = new FormData();
+    form.set('title', 'Damaged display'); form.set('description', 'The display is visibly damaged.'); form.set('category', 'IT'); form.set('location', 'Lab 2');
+    form.set('image', new File([Uint8Array.from([137,80,78,71,13,10,26,10,0,0,0,0])], 'evidence.png', { type: 'image/png' }));
+    const uploaded = await api.request(base + '/api/complaints', { method: 'POST', headers: { cookie: cookieA }, body: form });
+    assert.equal(uploaded.status, 201);
+    const uploadedDoc = await uploaded.json();
+    assert.equal((await api.request(base + uploadedDoc.complaint.imageUrl, { headers: { cookie: cookieA } })).status, 200);
+    assert.equal((await api.request(base + uploadedDoc.complaint.imageUrl, { headers: { cookie: cookieB } })).status, 404);
+    assert.equal((await send('/api/auth/logout', 'POST', undefined, cookieA)).response.status, 200);
+    assert.equal((await send('/api/auth/me', 'GET', undefined, cookieA)).response.status, 401);
+  } finally { const { closeDb } = await import('../src/server/db'); await closeDb(); await mongo.stop(); }
+});

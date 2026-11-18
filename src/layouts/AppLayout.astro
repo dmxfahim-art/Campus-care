@@ -1,0 +1,6 @@
+---
+import '../styles/global.css';
+const { title = 'CampusCare' } = Astro.props;
+import { storeScript } from '../lib/store';
+---
+<html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width" /><title>{title}</title><script is:inline set:html={storeScript}></script><script is:inline>(()=>{const publicRoutes=['/login','/register'];const authState=CampusCare.getState();if(!publicRoutes.includes(location.pathname)&&(!authState.user||!authState.users.some(u=>u.id===authState.user.id&&u.email===authState.user.email))){authState.user=null;CampusCare.saveState(authState);location.replace('/login')}})();</script></head><body><slot /></body></html>
