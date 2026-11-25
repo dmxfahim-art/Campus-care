@@ -1,9 +1,76 @@
 ---
-import AppLayout from '../layouts/AppLayout.astro'; import Sidebar from '../components/Sidebar.astro';
+import AppLayout from '../layouts/AppLayout.astro';
+import Sidebar from '../components/Sidebar.astro';
 ---
-<AppLayout title="Notifications — CampusCare"><div class="app-shell"><Sidebar active="notifications"/><main class="main-content"><header class="topbar"><div class="breadcrumb"><span>Student portal</span><b>/</b> Notifications</div></header><section class="page-content form-page"><h1>Notifications</h1><button class="secondary-button" id="mark-all">Mark all as read</button><section class="notice-card notifications-panel" id="notification-list"></section></section></main></div><script is:inline>
-  const list=document.querySelector('#notification-list'),escape=CampusCare.escapeHtml;let notifications=[];
-  async function load(){try{notifications=await CampusStudent.notifications();render()}catch(error){list.innerHTML='<p class="form-error">'+escape(error.message)+'</p>'}}
-  function render(){list.innerHTML=notifications.map(n=>`<div class="notification-row"><div class="notice-dot">${n.read?'✓':'●'}</div><div><strong>${escape(n.text)}</strong><small>${escape(n.time)} · ${n.read?'Read':'Unread'}</small></div><button class="secondary-button" data-id="${escape(n.id)}">${n.read?'Mark unread':'Mark read'}</button></div>`).join('')||'<div class="empty-state">No notifications yet.</div>';list.querySelectorAll('[data-id]').forEach(button=>button.onclick=async()=>{button.disabled=true;try{const item=notifications.find(n=>String(n.id)===button.dataset.id);await CampusStudent.setRead(item.id,!item.read);await load()}catch(error){button.disabled=false;list.insertAdjacentHTML('afterbegin','<p class="form-error">'+escape(error.message)+'</p>')}})}
-  document.querySelector('#mark-all').onclick=async()=>{const button=document.querySelector('#mark-all');button.disabled=true;try{await CampusStudent.readAll();await load()}catch(error){list.insertAdjacentHTML('afterbegin','<p class="form-error">'+escape(error.message)+'</p>')}finally{button.disabled=false}};load();
-</script></AppLayout>
+<AppLayout title="Notifications — CampusCare">
+  <div class="app-shell">
+    <Sidebar active="notifications" />
+    <main class="main-content">
+      <header class="topbar">
+        <div class="breadcrumb"><span>Student portal</span><b>/</b> Notifications</div>
+      </header>
+      <section class="page-content form-page">
+        <h1>Notifications</h1>
+        <button class="secondary-button" id="mark-all">Mark all as read</button>
+        <section class="notice-card notifications-panel" id="notification-list"></section>
+      </section>
+    </main>
+  </div>
+  <script is:inline>
+    const list = document.querySelector('#notification-list');
+    const escape = CampusCare.escapeHtml;
+    let notifications = [];
+    list.innerHTML = CampusCare.loaderHtml('Loading notifications...');
+
+    async function load() {
+      try {
+        notifications = await CampusStudent.notifications();
+        render();
+      } catch (error) {
+        list.innerHTML = '<p class="form-error">' + escape(error.message) + '</p>';
+      }
+    }
+
+    function render() {
+      list.innerHTML = notifications.map(n => `
+        <div class="notification-row">
+          <div class="notice-dot">${n.read ? CampusCare.icon('check', { size: 14 }) : CampusCare.icon('circle', { size: 10 })}</div>
+          <div>
+            <strong>${escape(n.text)}</strong>
+            <small>${escape(n.time)} · ${n.read ? 'Read' : 'Unread'}</small>
+          </div>
+          <button class="secondary-button" data-id="${escape(n.id)}">${n.read ? 'Mark unread' : 'Mark read'}</button>
+        </div>
+      `).join('') || '<div class="empty-state">No notifications yet.</div>';
+
+      list.querySelectorAll('[data-id]').forEach(button => {
+        button.onclick = async () => {
+          CampusCare.setButtonLoading(button, true, 'Updating...');
+          try {
+            const item = notifications.find(n => String(n.id) === button.dataset.id);
+            await CampusStudent.setRead(item.id, !item.read);
+            await load();
+          } catch (error) {
+            CampusCare.setButtonLoading(button, false);
+            list.insertAdjacentHTML('afterbegin', '<p class="form-error">' + escape(error.message) + '</p>');
+          }
+        };
+      });
+    }
+
+    const markAllBtn = document.querySelector('#mark-all');
+    markAllBtn.onclick = async () => {
+      CampusCare.setButtonLoading(markAllBtn, true, 'Marking all as read...');
+      try {
+        await CampusStudent.readAll();
+        await load();
+      } catch (error) {
+        list.insertAdjacentHTML('afterbegin', '<p class="form-error">' + escape(error.message) + '</p>');
+      } finally {
+        CampusCare.setButtonLoading(markAllBtn, false);
+      }
+    };
+
+    load();
+  </script>
+</AppLayout>

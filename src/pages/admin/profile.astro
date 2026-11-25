@@ -2,8 +2,71 @@
 import AppLayout from '../../layouts/AppLayout.astro';
 import AdminSidebar from '../../components/AdminSidebar.astro';
 ---
-<AppLayout title="Admin profile — CampusCare"><div class="app-shell"><AdminSidebar /><main class="main-content"><header class="topbar"><div class="breadcrumb"><span>Admin portal</span><b>/</b> Profile</div></header><section class="page-content form-page"><p class="eyebrow">ACCOUNT</p><h1>My profile</h1><p class="subtitle">Update your administrator account details.</p><form class="form-card" id="admin-profile"><label>Full name<input name="name" required /></label><label>Account ID<input name="studentId" required /></label><label>Email<input name="email" type="email" required /></label><div class="form-actions"><a class="secondary-button" href="/admin">Cancel</a><button class="primary-button">Save changes</button></div><p id="profile-result" class="form-success" role="status"></p></form></section></main></div><script is:inline>
-  const form=document.querySelector('#admin-profile'),result=document.querySelector('#profile-result');
-  (async()=>{try{const state=await CampusAdmin.session(),user=state.user;form.elements.namedItem('name').value=user.name||'';form.elements.namedItem('studentId').value=user.studentId||user.id||'';form.elements.namedItem('email').value=user.email||''}catch(error){result.textContent=error.message}})();
-  form.onsubmit=async e=>{e.preventDefault();const state=await CampusAdmin.session(),data=Object.fromEntries(new FormData(form)),button=form.querySelector('button');button.disabled=true;result.textContent='Saving…';try{const response=await CampusAdmin.request('/auth/me','PATCH',data);state.user=response.user;CampusCare.saveState(state);result.textContent='Profile saved.';document.querySelector('[data-admin-name]').textContent=state.user.name}catch(error){result.textContent=error.message}finally{button.disabled=false}};
-</script></AppLayout>
+<AppLayout title="Admin profile — CampusCare">
+  <div class="app-shell">
+    <AdminSidebar active="profile" />
+    <main class="main-content">
+      <header class="topbar">
+        <div class="breadcrumb"><span>Admin portal</span><b>/</b> Profile</div>
+      </header>
+      <section class="page-content form-page">
+        <p class="eyebrow">ACCOUNT</p>
+        <h1>My profile</h1>
+        <p class="subtitle">Update your administrator account details.</p>
+        <form class="form-card" id="admin-profile">
+          <label>Full name
+            <input name="name" required />
+          </label>
+          <label>Account ID
+            <input name="studentId" required />
+          </label>
+          <label>Email
+            <input name="email" type="email" required />
+          </label>
+          <div class="form-actions">
+            <a class="secondary-button" href="/admin">Cancel</a>
+            <button class="primary-button" type="submit">Save changes</button>
+          </div>
+          <p id="profile-result" role="status"></p>
+        </form>
+      </section>
+    </main>
+  </div>
+  <script is:inline>
+    const form = document.querySelector('#admin-profile');
+    const result = document.querySelector('#profile-result');
+    const saveBtn = form.querySelector('button[type="submit"]');
+
+    (async () => {
+      try {
+        const state = await CampusAdmin.session(), user = state.user;
+        form.elements.namedItem('name').value = user.name || '';
+        form.elements.namedItem('studentId').value = user.studentId || user.id || '';
+        form.elements.namedItem('email').value = user.email || '';
+      } catch (error) {
+        result.className = 'form-error';
+        result.textContent = error.message;
+      }
+    })();
+
+    form.onsubmit = async e => {
+      e.preventDefault();
+      const state = await CampusAdmin.session(), data = Object.fromEntries(new FormData(form));
+      CampusCare.setButtonLoading(saveBtn, true, 'Saving changes...');
+      result.textContent = '';
+      try {
+        const response = await CampusAdmin.request('/auth/me', 'PATCH', data);
+        CampusCare.setUser(response.user);
+        result.className = 'form-success';
+        result.textContent = 'Profile saved.';
+        const adminNameEl = document.querySelector('[data-admin-name]');
+        if (adminNameEl) adminNameEl.textContent = state.user.name;
+      } catch (error) {
+        result.className = 'form-error';
+        result.textContent = error.message;
+      } finally {
+        CampusCare.setButtonLoading(saveBtn, false);
+      }
+    };
+  </script>
+</AppLayout>

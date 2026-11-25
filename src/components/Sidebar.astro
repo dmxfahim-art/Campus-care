@@ -2,33 +2,47 @@
 const path = Astro.url.pathname;
 const active = Astro.props.active || (path === '/' ? 'overview' : path === '/complaint' ? 'complaints' : path.slice(1));
 import Brand from './Brand.astro';
+import Icon from './Icon.astro';
 ---
 <aside class="sidebar">
   <Brand light />
   <div class="workspace-label">STUDENT PORTAL</div>
   <nav aria-label="Main navigation">
-    <a class={`nav-item ${active === 'overview' ? 'active' : ''}`} href="/"><span>⌂</span> Overview</a>
-    <a class={`nav-item ${active === 'complaints' ? 'active' : ''}`} href="/complaints"><span>▤</span> My complaints <b data-complaint-count>0</b></a>
-    <a class={`nav-item ${active === 'report' ? 'active' : ''}`} href="/report"><span>＋</span> New complaint</a>
-    <a class={`nav-item ${active === 'notifications' ? 'active' : ''}`} href="/notifications"><span>♧</span> Notifications</a>
+    <a class={`nav-item ${active === 'overview' ? 'active' : ''}`} href="/"><Icon name="home" size={18} /> Overview</a>
+    <a class={`nav-item ${active === 'complaints' ? 'active' : ''}`} href="/complaints"><Icon name="file-text" size={18} /> My complaints <b data-complaint-count>0</b></a>
+    <a class={`nav-item ${active === 'report' ? 'active' : ''}`} href="/report"><Icon name="plus" size={18} /> New complaint</a>
+    <a class={`nav-item ${active === 'notifications' ? 'active' : ''}`} href="/notifications"><Icon name="bell" size={18} /> Notifications</a>
   </nav>
   <div class="sidebar-bottom">
-    <a class={`nav-item ${active === 'help' ? 'active' : ''}`} href="/help"><span>?</span> Help & support</a>
+    <a class={`nav-item ${active === 'help' ? 'active' : ''}`} href="/help"><Icon name="help-circle" size={18} /> Help</a>
     <div class="account-card">
-      <div class="account-identity"><div class="avatar" data-user-avatar></div><div class="account-copy"><strong data-user-name></strong><small data-user-meta></small></div></div>
-      <div class="account-actions"><a class={active === 'profile' ? 'active' : ''} href="/profile">Profile</a><button type="button" data-sign-out>Sign out</button></div>
+      <div class="account-identity">
+        <div class="avatar" data-user-avatar></div>
+        <div class="account-copy">
+          <strong data-user-name></strong>
+          <small data-user-meta></small>
+        </div>
+      </div>
+      <div class="account-actions">
+        <a class={active === 'profile' ? 'active' : ''} href="/profile">Profile</a>
+        <button type="button" data-sign-out>Sign out</button>
+      </div>
     </div>
   </div>
 </aside>
 <script is:inline>
-  queueMicrotask(async () => {
-    const state = CampusCare.getState(), user = state.user;
-    if (!user) return;
-    const sidebar = document.querySelector('.sidebar');
-    sidebar.querySelector('[data-user-name]').textContent = user.name;
-    sidebar.querySelector('[data-user-meta]').textContent = `${user.role} · ${user.studentId || user.id}`;
-    sidebar.querySelector('[data-user-avatar]').textContent = user.name.trim().split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase();
-    try { sidebar.querySelector('[data-complaint-count]').textContent = (await CampusStudent.complaints()).length; } catch { sidebar.querySelector('[data-complaint-count]').textContent = '0'; }
-    sidebar.querySelector('[data-sign-out]').addEventListener('click', () => CampusCare.logout());
-  });
+  (async () => {
+    let user = CampusCare.getUser();
+    if (!user) user = await CampusCare.fetchUser();
+    if (user) CampusCare.applyUserToDom(user);
+    try {
+      const countEl = document.querySelector('[data-complaint-count]');
+      if (countEl) countEl.textContent = (await CampusStudent.complaints()).length;
+    } catch {
+      const countEl = document.querySelector('[data-complaint-count]');
+      if (countEl) countEl.textContent = '0';
+    }
+    const signOutBtn = document.querySelector('[data-sign-out]');
+    if (signOutBtn) signOutBtn.addEventListener('click', () => CampusCare.logout());
+  })();
 </script>

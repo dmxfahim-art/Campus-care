@@ -1,0 +1,264 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import AdminSidebar from '../../components/AdminSidebar.astro';
+---
+<AppLayout title="Complaint categories — CampusCare">
+  <div class="app-shell">
+    <AdminSidebar active="categories" />
+    <main class="main-content">
+      <header class="topbar">
+        <div class="breadcrumb"><span>Admin portal</span><b>/</b> Categories</div>
+      </header>
+      <section class="page-content form-page">
+        <p class="eyebrow">COMPLAINT CLASSIFICATION</p>
+        <h1>Categories</h1>
+        <p class="subtitle">Manage complaint categories available for student reports and routing.</p>
+        <div class="detail-card notifications-panel" id="category-list"></div>
+        <form class="form-card" id="category-form">
+          <h2>Add a category</h2>
+          <label>Category name
+            <input name="name" required placeholder="e.g. Hostel & Housing" />
+          </label>
+          <label>Category code
+            <input name="code" required placeholder="e.g. Hostel" pattern="^[A-Za-z0-9_-]+$" title="Alphanumeric, hyphens, and underscores only" />
+          </label>
+          <button class="primary-button" type="submit">Add category</button>
+          <p class="form-error" id="category-result" role="status"></p>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="edit-category-modal" class="modal-dialog">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow" style="margin-bottom: 4px;">EDIT CATEGORY</p>
+          <h2 id="modal-title">Edit category</h2>
+        </div>
+        <button type="button" class="icon-button modal-close" id="modal-close-icon" aria-label="Close dialog">✕</button>
+      </div>
+      <form id="edit-category-form">
+        <input type="hidden" name="oldCode" id="modal-old-code" />
+        <label>Category name
+          <input name="name" id="modal-name" required placeholder="e.g. IT & Wi-Fi" />
+        </label>
+        <label>Category code
+          <input name="code" id="modal-code" required pattern="^[A-Za-z0-9_-]+$" title="Alphanumeric, hyphens, and underscores only" placeholder="e.g. IT" />
+        </label>
+        <div class="modal-actions">
+          <button type="button" class="secondary-button" id="modal-cancel-btn">Cancel</button>
+          <button type="submit" class="primary-button" id="modal-save-btn">Save</button>
+        </div>
+        <p class="form-error" id="modal-error" role="status" style="margin-top: 12px;"></p>
+      </form>
+    </div>
+  </dialog>
+
+  <style is:global>
+    .category-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .modal-dialog {
+      padding: 0;
+      border: none;
+      border-radius: 20px;
+      background: transparent;
+      box-shadow: 0 24px 48px rgba(25, 43, 38, 0.25);
+      max-width: 460px;
+      width: calc(100% - 32px);
+      margin: auto;
+    }
+    .modal-dialog::backdrop {
+      background: rgba(25, 43, 38, 0.55);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+    .modal-card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 26px 28px;
+    }
+    .modal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    .modal-header h2 {
+      font-size: 1.45rem;
+      margin: 0;
+    }
+    .modal-close {
+      cursor: pointer;
+      border-radius: 10px;
+      min-width: 36px;
+      min-height: 36px;
+      font-size: 0.95rem;
+      line-height: 1;
+      padding: 0;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      color: var(--muted);
+      display: grid;
+      place-items: center;
+    }
+    .modal-close:hover {
+      background: var(--mint-soft);
+      color: var(--ink);
+    }
+    #edit-category-form label {
+      display: block;
+      margin-top: 14px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    #edit-category-form input {
+      display: block;
+      width: 100%;
+      margin-top: 6px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--canvas);
+      box-sizing: border-box;
+    }
+    #edit-category-form input:focus {
+      outline: 2px solid var(--mint);
+      border-color: var(--mint);
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 24px;
+    }
+  </style>
+  <script is:inline>
+    const escape = CampusCare.escapeHtml;
+    const form = document.querySelector('#category-form');
+    const message = document.querySelector('#category-result');
+    const createBtn = form.querySelector('button[type="submit"]');
+    const list = document.querySelector('#category-list');
+    list.innerHTML = CampusCare.loaderHtml('Loading categories...');
+
+    const modal = document.querySelector('#edit-category-modal');
+    const modalForm = document.querySelector('#edit-category-form');
+    const modalOldCode = document.querySelector('#modal-old-code');
+    const modalName = document.querySelector('#modal-name');
+    const modalCode = document.querySelector('#modal-code');
+    const modalError = document.querySelector('#modal-error');
+    const modalSaveBtn = document.querySelector('#modal-save-btn');
+    const modalCancelBtn = document.querySelector('#modal-cancel-btn');
+    const modalCloseIcon = document.querySelector('#modal-close-icon');
+
+    function openEditModal(code, name) {
+      modalOldCode.value = code;
+      modalName.value = name;
+      modalCode.value = code;
+      modalError.textContent = '';
+      modalError.className = 'form-error';
+      CampusCare.setButtonLoading(modalSaveBtn, false);
+      modal.showModal();
+      modalName.focus();
+    }
+
+    function closeEditModal() {
+      modal.close();
+      modalForm.reset();
+      modalError.textContent = '';
+    }
+
+    modalCancelBtn.onclick = closeEditModal;
+    modalCloseIcon.onclick = closeEditModal;
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeEditModal();
+    });
+
+    modalForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const oldCode = modalOldCode.value;
+      const newName = modalName.value.trim();
+      const newCode = modalCode.value.trim();
+      CampusCare.setButtonLoading(modalSaveBtn, true, 'Saving...');
+      modalError.textContent = '';
+      try {
+        await CampusAdmin.updateCategory(oldCode, { name: newName, code: newCode });
+        closeEditModal();
+        await render();
+      } catch (error) {
+        modalError.className = 'form-error';
+        modalError.textContent = error.message;
+      } finally {
+        CampusCare.setButtonLoading(modalSaveBtn, false);
+      }
+    };
+
+    async function render() {
+      try {
+        const items = await CampusAdmin.categories();
+        list.innerHTML = items.map(c => `
+          <div class="team-member category-row" data-code="${escape(c.code)}">
+            <div class="category-header">
+              <div class="account-identity">
+                <div class="notice-dot">${CampusCare.icon('tag', { size: 16 })}</div>
+                <div>
+                  <strong class="cat-name">${escape(c.name)}</strong>
+                  <small>Code: <code class="cat-code">${escape(c.code)}</code></small>
+                </div>
+              </div>
+              <div class="category-actions">
+                <button type="button" class="secondary-button edit-btn" data-code="${escape(c.code)}" data-name="${escape(c.name)}">${CampusCare.icon('pencil', { size: 14 })} Edit</button>
+              </div>
+            </div>
+          </div>
+        `).join('') || '<p class="empty-state">No categories defined yet.</p>';
+
+        list.querySelectorAll('.edit-btn').forEach(btn => {
+          btn.onclick = () => {
+            openEditModal(btn.dataset.code, btn.dataset.name);
+          };
+        });
+      } catch (error) {
+        list.innerHTML = '<p class="form-error">' + escape(error.message) + '</p>';
+      }
+    }
+
+    (async () => {
+      try {
+        await render();
+      } catch (error) {
+        message.textContent = error.message;
+      }
+    })();
+
+    form.onsubmit = async e => {
+      e.preventDefault();
+      const f = new FormData(form);
+      CampusCare.setButtonLoading(createBtn, true, 'Adding category...');
+      message.textContent = '';
+      try {
+        const input = {
+          name: String(f.get('name')).trim(),
+          code: String(f.get('code')).trim()
+        };
+        await CampusAdmin.createCategory(input);
+        form.reset();
+        message.className = 'form-success';
+        message.textContent = 'Category added successfully.';
+        await render();
+      } catch (error) {
+        message.className = 'form-error';
+        message.textContent = error.message;
+      } finally {
+        CampusCare.setButtonLoading(createBtn, false);
+      }
+    };
+  </script>
+</AppLayout>

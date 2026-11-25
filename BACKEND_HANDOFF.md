@@ -44,9 +44,6 @@ All JSON routes use the same-origin HTTP-only session cookie. Login/register ret
 | PATCH | `/api/notifications/:id/read` | owner | `{ read: boolean }` |
 | PATCH | `/api/notifications/read-all` | signed in | Mark all as read |
 | GET | `/api/dashboard/summary` | signed in | Role-scoped totals and category/department counts |
-| GET, POST | `/api/support` | student | List/create own support requests with status and reply |
-| GET | `/api/support/requests` | admin | Paginated support queue without student identity |
-| PATCH | `/api/support/requests/:id` | admin | Update status/reply and notify the student |
 
 Complaint categories are `IT`, `Classroom`, `Transport`, `Facilities`. Statuses are `Submitted`, `In Progress`, `Resolved`. `id` is the MongoDB ID; `displayId` is the human-facing complaint number. Images accept PNG, JPEG, or WebP up to 5 MB and are stored in MongoDB GridFS. The image endpoint applies the same ownership rules as complaint details.
 

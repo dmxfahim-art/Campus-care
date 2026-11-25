@@ -1,0 +1,44 @@
+---
+import { icons } from 'lucide';
+
+interface Props {
+  name: string;
+  size?: number | string;
+  class?: string;
+  strokeWidth?: number | string;
+}
+
+const {
+  name,
+  size = 18,
+  class: className = '',
+  strokeWidth = 2,
+} = Astro.props;
+
+const pascal = name
+  .split(/[-_ ]+/)
+  .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+  .join('');
+
+const iconNode = (icons as Record<string, any>)[pascal] || (icons as Record<string, any>)[name];
+---
+{iconNode ? (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width={strokeWidth}
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    class={`app-icon icon-${name} ${className}`.trim()}
+    aria-hidden="true"
+  >
+    {iconNode.map(([tag, attrs]: [string, Record<string, string>]) => {
+      const Tag = tag;
+      return <Tag {...attrs} />;
+    })}
+  </svg>
+) : null}

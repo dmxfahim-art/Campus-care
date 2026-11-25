@@ -15,18 +15,65 @@ const { title = 'CampusCare' } = Astro.props;
     <script is:inline set:html={adminScript}></script>
     <script is:inline set:html={studentScript}></script>
     <script is:inline>
-      (async () => {
+      async function checkAuthSession() {
         const path = location.pathname;
-        if (['/login', '/register', '/admin/login'].includes(path)) return;
-        let user;
-        try { user = (await CampusAdmin.request('/auth/me')).user; CampusCare.saveState({ user, mode: 'api' }); }
-        catch { CampusCare.saveState({ user: null }); location.replace(path.startsWith('/admin') ? '/admin/login' : '/login'); return; }
-        if (path.startsWith('/admin')) {
-          if (!['admin', 'staff'].includes(user.role)) location.replace('/login');
-          else if (['/admin/team', '/admin/support'].includes(path) && user.role !== 'admin') location.replace('/admin');
-        } else if (user.role !== 'student') location.replace('/admin');
-      })();
+        const cleanPath = path.replace(/\/$/, '') || '/';
+        const isAuthPage = ['/login', '/register', '/admin/login'].includes(cleanPath);
+
+        const user = await CampusCare.fetchUser(true);
+
+        if (!user) {
+          CampusCare.setUser(null);
+          if (!isAuthPage) {
+            location.replace(cleanPath.startsWith('/admin') ? '/admin/login' : '/login');
+          }
+          return;
+        }
+
+        CampusCare.setUser(user);
+        CampusCare.applyUserToDom(user);
+
+        // User is authenticated: keep them inside the app
+        if (isAuthPage) {
+          if (['admin', 'staff'].includes(user.role)) {
+            location.replace('/admin');
+          } else {
+            location.replace('/');
+          }
+          return;
+        }
+
+        // Role-based route guard
+        if (cleanPath.startsWith('/admin')) {
+          if (!['admin', 'staff'].includes(user.role)) {
+            location.replace('/login');
+          } else if (['/admin/team', '/admin/categories'].includes(cleanPath) && user.role !== 'admin') {
+            location.replace('/admin');
+          }
+        } else if (user.role !== 'student') {
+          location.replace('/admin');
+        }
+      }
+
+      checkAuthSession();
+
+      // Ensure back/forward cache or history navigation preserves auth state
+      window.addEventListener('pageshow', (event) => {
+        if (event.persisted) {
+          checkAuthSession();
+        }
+      });
+      window.addEventListener('popstate', () => {
+        checkAuthSession();
+      });
     </script>
   </head>
-  <body><slot /></body>
+  <body>
+    <div id="global-loader-bar" aria-hidden="true"></div>
+    <div id="global-loader-pill" aria-live="polite" aria-atomic="true">
+      <span class="pill-spinner"></span>
+      <span id="global-loader-text">Loading...</span>
+    </div>
+    <slot />
+  </body>
 </html>

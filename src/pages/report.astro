@@ -1,6 +1,7 @@
 ---
 import AppLayout from '../layouts/AppLayout.astro';
 import Sidebar from '../components/Sidebar.astro';
+import Icon from '../components/Icon.astro';
 ---
 <AppLayout title="Report a problem — CampusCare">
   <div class="app-shell">
@@ -12,22 +13,51 @@ import Sidebar from '../components/Sidebar.astro';
         <form id="report-form" class="form-card">
           <div class="form-section"><span class="step">01</span><div><h2>What’s happening?</h2><p>Be as specific as you can so the team can help faster.</p></div></div>
           <label>Title<input required name="title" placeholder="e.g. Projector not working in Room 204" /></label>
-          <div class="form-grid"><label>Category<select required name="category"><option value="IT">IT & Wi-Fi</option><option>Classroom</option><option>Transport</option><option>Facilities</option></select></label><label>Location<input required name="location" placeholder="e.g. Main library, floor 2" /></label></div>
+          <div class="form-grid"><label>Category<select required name="category" id="category-select"><option value="IT">IT</option><option value="Classroom">Classroom</option><option value="Transport">Transport</option><option value="Facilities">Facilities</option></select></label><label>Location<input required name="location" placeholder="e.g. Main library, floor 2" /></label></div>
           <label>Description<textarea required name="description" rows="5" placeholder="Tell us what you noticed, when it started, and anything else that may help..."></textarea></label>
-          <label>Photo <span class="optional">Optional</span><input name="image" type="file" accept="image/png,image/jpeg" /></label>
-          <p class="subtitle">Admins see the report and any photo. Leave out your name or other identifying details if you want to stay anonymous to them.</p>
-          <div class="form-actions"><a href="/" class="secondary-button">Cancel</a><button class="primary-button" type="submit">Submit complaint →</button></div>
+          <p class="subtitle">Admins see the report. Leave out your name or other identifying details if you want to stay anonymous to them.</p>
+          <div class="form-actions"><a href="/" class="secondary-button">Cancel</a><button class="primary-button" type="submit">Submit complaint <Icon name="arrow-right" size={16} /></button></div>
         </form>
       </section>
     </main>
   </div>
   <script is:inline>
-    const reportState = CampusCare.getState();
-    if(reportState.user)document.querySelector('#report-avatar').textContent = reportState.user.name.trim().split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase();
-    document.querySelector('#report-form').addEventListener('submit', async event => {
+    (async () => {
+      try {
+        const categories = await CampusStudent.categories();
+        if (categories && categories.length) {
+          const select = document.querySelector('#category-select');
+          if (select) {
+            select.innerHTML = categories.map(cat => `<option value="${CampusCare.escapeHtml(cat.code)}">${CampusCare.escapeHtml(cat.name)}</option>`).join('');
+          }
+        }
+      } catch {}
+    })();
+    queueMicrotask(async () => {
+      const user = CampusCare.getUser() || (await CampusCare.fetchUser());
+      if (user) {
+        document.querySelector('#report-avatar').textContent = user.name.trim().split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase();
+      }
+    });
+    const reportForm = document.querySelector('#report-form');
+    const submitBtn = reportForm.querySelector('button[type="submit"]');
+    reportForm.addEventListener('submit', async event => {
       event.preventDefault();
-      const button=event.currentTarget.querySelector('button[type="submit"]');button.disabled=true;
-      try{const id=await CampusStudent.report(new FormData(event.currentTarget));location.href='/complaint?id='+encodeURIComponent(id)}catch(error){let message=document.querySelector('#report-error');if(!message){message=document.createElement('p');message.id='report-error';message.className='form-error';event.currentTarget.append(message)}message.textContent=error.message;button.disabled=false}
+      CampusCare.setButtonLoading(submitBtn, true, 'Submitting complaint...');
+      try {
+        const id = await CampusStudent.report(new FormData(event.currentTarget));
+        location.replace('/complaint?id=' + encodeURIComponent(id));
+      } catch (error) {
+        let message = document.querySelector('#report-error');
+        if (!message) {
+          message = document.createElement('p');
+          message.id = 'report-error';
+          message.className = 'form-error';
+          event.currentTarget.append(message);
+        }
+        message.textContent = error.message;
+        CampusCare.setButtonLoading(submitBtn, false);
+      }
     });
   </script>
 </AppLayout>

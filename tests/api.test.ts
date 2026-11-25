@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 
-test('auth, ownership, status, notifications and support', async () => {
+test('auth, ownership, status, notifications and complaints', async () => {
   const mongo = await MongoMemoryServer.create();
   process.env.MONGODB_URI = mongo.getUri();
   process.env.MONGODB_DB = 'campuscare_test';
@@ -28,21 +28,12 @@ test('auth, ownership, status, notifications and support', async () => {
     const profile = await send('/api/auth/me', 'PATCH', { name: 'Updated Student', studentId: 'S1', email: 'first@example.com' }, cookieA);
     assert.equal(profile.data.user.name, 'Updated Student');
     assert.equal((await send('/api/complaints', 'GET', undefined, cookieA)).data.total, 1);
-    assert.equal((await send('/api/support', 'POST', { subject: 'Need assistance', message: 'Please help me understand this complaint.' }, cookieA)).response.status, 201);
-    assert.equal((await send('/api/support', 'GET', undefined, cookieA)).data.items.length, 1);
     const { getDb } = await import('../src/server/db');
     const { hashPassword } = await import('../src/server/security');
     await (await getDb()).collection('users').insertOne({ name: 'Campus Admin', studentId: 'ADM1', email: 'admin@example.com', role: 'admin', passwordHash: await hashPassword('password123') });
     const login = await send('/api/auth/login', 'POST', { email: 'admin@example.com', password: 'password123' });
     assert.equal(login.response.status, 200);
     const adminCookie = login.response.headers.get('set-cookie')!.split(';')[0];
-    const requests = await send('/api/support/requests', 'GET', undefined, adminCookie);
-    assert.equal(requests.response.status, 200);
-    assert.equal(requests.data.total, 1);
-    assert.equal('userId' in requests.data.items[0], false);
-    const supportId = requests.data.items[0].id;
-    assert.equal((await send(`/api/support/requests/${supportId}`, 'PATCH', { status: 'Resolved', reply: 'Please check the complaint page.' }, adminCookie)).response.status, 200);
-    assert.equal((await send('/api/support', 'GET', undefined, cookieA)).data.items[0].reply, 'Please check the complaint page.');
     const adminList = await send('/api/complaints', 'GET', undefined, adminCookie);
     const adminDetail = await send(`/api/complaints/${id}`, 'GET', undefined, adminCookie);
     for (const complaint of [adminList.data.items[0], adminDetail.data.complaint]) {
@@ -56,7 +47,6 @@ test('auth, ownership, status, notifications and support', async () => {
     assert.equal(staff.response.status, 201);
     const staffLogin = await send('/api/auth/login', 'POST', { email: 'staff@example.com', password: 'password123' });
     const staffCookie = staffLogin.response.headers.get('set-cookie')!.split(';')[0];
-    assert.equal((await send('/api/support/requests', 'GET', undefined, staffCookie)).response.status, 403);
     assert.equal((await send(`/api/complaints/${id}`, 'GET', undefined, staffCookie)).response.status, 404);
     assert.equal((await send(`/api/complaints/${id}/assign`, 'PATCH', { departmentId: 'IT' }, adminCookie)).response.status, 200);
     assert.equal((await send('/api/complaints', 'GET', undefined, staffCookie)).data.total, 1);
@@ -67,7 +57,7 @@ test('auth, ownership, status, notifications and support', async () => {
     assert.equal((await send('/api/auth/login', 'POST', { email: 'staff@example.com', password: 'password123' })).response.status, 401);
     assert.equal((await send(`/api/staff/${login.data.user.id}`, 'PATCH', { role: 'admin', active: false }, adminCookie)).response.status, 409);
     const notices = await send('/api/notifications', 'GET', undefined, cookieA);
-    assert.equal(notices.data.items.length, 3);
+    assert.equal(notices.data.items.length, 2);
     assert.equal((await send(`/api/notifications/${notices.data.items[0].id}/read`, 'PATCH', { read: true }, cookieA)).response.status, 200);
     assert.equal((await send('/api/notifications/read-all', 'PATCH', undefined, cookieA)).response.status, 200);
     assert.equal((await send('/api/dashboard/summary', 'GET', undefined, cookieA)).data.resolved, 1);

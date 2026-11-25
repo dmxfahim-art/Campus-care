@@ -1,7 +1,55 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro';
 import Brand from '../../components/Brand.astro';
+import Icon from '../../components/Icon.astro';
 ---
-<AppLayout title="Admin sign in — CampusCare"><main class="auth-page"><div class="auth-brand"><Brand /></div><section class="auth-card"><p class="eyebrow">ADMIN PORTAL</p><h1>Admin & staff sign in</h1><p class="auth-subtitle">Manage campus reports without seeing who submitted them.</p><form id="admin-login"><label>Email<input name="email" type="email" autocomplete="email" required placeholder="admin@university.edu" /></label><label>Password<input name="password" type="password" autocomplete="current-password" required placeholder="Enter your password" /></label><p class="form-error" id="admin-error" role="alert"></p><button class="primary-button">Sign in to portal</button></form><p class="auth-footer"><a href="/login">← Student sign in</a></p></section></main><script is:inline>
-  document.querySelector('#admin-login').onsubmit=async e=>{e.preventDefault();const form=new FormData(e.currentTarget),error=document.querySelector('#admin-error');error.textContent='';try{if(!await CampusStudent.backendReady())throw Error('The database is not configured yet.');const response=await fetch('/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},credentials:'same-origin',body:JSON.stringify({email:String(form.get('email')).trim().toLowerCase(),password:String(form.get('password'))})});const data=await response.json();if(!response.ok)throw Error(data.error||'Sign in failed');if(!['admin','staff'].includes(data.user.role)){await fetch('/api/auth/logout',{method:'POST',credentials:'same-origin'});throw Error('This account is not on the management team.')}const state=CampusCare.getState();state.user=data.user;state.mode='api';CampusCare.saveState(state);location.href='/admin'}catch(err){error.textContent=err.message||'Could not sign in. Check the server connection.'}};
-</script></AppLayout>
+<AppLayout title="Admin sign in — CampusCare">
+  <main class="auth-page">
+    <div class="auth-brand"><Brand /></div>
+    <section class="auth-card">
+      <p class="eyebrow">ADMIN PORTAL</p>
+      <h1>Admin & staff sign in</h1>
+      <p class="auth-subtitle">Manage campus reports without seeing who submitted them.</p>
+      <form id="admin-login">
+        <label>Email<input name="email" type="email" autocomplete="email" required placeholder="admin@university.edu" /></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" required placeholder="Enter your password" /></label>
+        <p class="form-error" id="admin-error" role="alert"></p>
+        <button class="primary-button" type="submit">Sign in to portal</button>
+      </form>
+      <p class="auth-footer"><a href="/login"><Icon name="arrow-left" size={14} /> Student sign in</a></p>
+    </section>
+  </main>
+  <script is:inline>
+    const adminForm = document.querySelector('#admin-login');
+    const submitBtn = adminForm.querySelector('button');
+    adminForm.onsubmit = async e => {
+      e.preventDefault();
+      const form = new FormData(e.currentTarget), error = document.querySelector('#admin-error');
+      error.textContent = '';
+      CampusCare.setButtonLoading(submitBtn, true, 'Signing in...');
+      try {
+        if (!await CampusStudent.backendReady()) throw Error('The database is not configured yet.');
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            email: String(form.get('email')).trim().toLowerCase(),
+            password: String(form.get('password'))
+          })
+        });
+        const data = await response.json();
+        if (!response.ok) throw Error(data.error || 'Sign in failed');
+        if (!['admin', 'staff'].includes(data.user.role)) {
+          await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+          throw Error('This account is not on the management team.');
+        }
+        CampusCare.setUser(data.user);
+        location.replace('/admin');
+      } catch (err) {
+        error.textContent = err.message || 'Could not sign in. Check the server connection.';
+        CampusCare.setButtonLoading(submitBtn, false);
+      }
+    };
+  </script>
+</AppLayout>

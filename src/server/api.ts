@@ -7,10 +7,9 @@ import { createSession, currentUser, destroySession, hashPassword, publicUser, v
 import { loadImage, maxImageBytes, saveImage } from './images';
 
 export const api = new Hono().basePath('/api');
-const categories = ['IT', 'Classroom', 'Transport', 'Facilities'] as const;
 const statuses = ['Submitted', 'In Progress', 'Resolved'] as const;
 const registerSchema = z.object({ name: z.string().trim().min(2).max(100), studentId: z.string().trim().min(2).max(40), email: z.email().transform(x => x.toLowerCase()), password: z.string().min(8).max(128) });
-const complaintSchema = z.object({ title: z.string().trim().min(3).max(160), description: z.string().trim().min(10).max(5000), category: z.enum(categories), location: z.string().trim().min(2).max(200) });
+const complaintSchema = z.object({ title: z.string().trim().min(3).max(160), description: z.string().trim().min(10).max(5000), category: z.string().trim().min(2).max(60), location: z.string().trim().min(2).max(200) });
 const parseId = (id: string) => ObjectId.isValid(id) ? new ObjectId(id) : null;
 const invalid = (c: any, errors: any) => c.json({ error: 'Invalid input', details: errors.flatten() }, 400);
 const serializeComplaint = (doc: any) => ({ id: String(doc._id), displayId: doc.displayId, title: doc.title, description: doc.description, category: doc.category, location: doc.location, imageUrl: doc.imageId ? `/api/complaints/${doc._id}/image` : null, status: doc.status, departmentId: doc.departmentId || null, createdAt: doc.createdAt, updatedAt: doc.updatedAt, timeline: (doc.timeline || []).map(({ by, userId, studentId, ...event }: any) => event), feedback: doc.feedback || null });
@@ -74,6 +73,70 @@ api.patch('/auth/password', async c => {
   return c.json({ ok: true });
 });
 api.get('/departments', async c => { const items = await (await getDb()).collection('departments').find({}, { projection: { _id: 0, code: 1, name: 1 } }).toArray(); return c.json({ items }); });
+api.get('/categories', async c => { const items = await (await getDb()).collection('categories').find({}, { projection: { _id: 0, code: 1, name: 1 } }).sort({ name: 1 }).toArray(); return c.json({ items }); });
+api.post('/categories', async c => {
+  const user = getUser(c); if (user.role !== 'admin') return c.json({ error: 'Forbidden' }, 403);
+  const body = z.object({ code: z.string().trim().min(2).max(40).regex(/^[A-Za-z0-9_-]+$/, 'Category code must be alphanumeric'), name: z.string().trim().min(2).max(100) }).safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return invalid(c, body.error);
+  const db = await getDb();
+  try {
+    await db.collection('categories').insertOne({ code: body.data.code, name: body.data.name, createdAt: new Date() });
+    await db.collection('departments').updateOne({ code: body.data.code }, { $setOnInsert: { code: body.data.code, name: body.data.name } }, { upsert: true });
+    return c.json({ category: body.data }, 201);
+  } catch (error: any) {
+    if (error?.code === 11000) return c.json({ error: 'Category code already exists' }, 409);
+    throw error;
+  }
+});
+api.patch('/categories/:code', async c => {
+  const user = getUser(c); if (user.role !== 'admin') return c.json({ error: 'Forbidden' }, 403);
+  const targetCode = c.req.param('code');
+  const body = z.object({
+    code: z.string().trim().min(2).max(40).regex(/^[A-Za-z0-9_-]+$/, 'Category code must be alphanumeric').optional(),
+    name: z.string().trim().min(2).max(100)
+  }).safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return invalid(c, body.error);
+
+  const db = await getDb();
+  const existing = await db.collection('categories').findOne({ code: targetCode });
+  if (!existing) return c.json({ error: 'Category not found' }, 404);
+
+  const newCode = body.data.code || targetCode;
+  if (newCode !== targetCode) {
+    const conflict = await db.collection('categories').findOne({ code: newCode });
+    if (conflict) return c.json({ error: 'Category code already exists' }, 409);
+  }
+
+  const newName = body.data.name;
+  await db.collection('categories').updateOne(
+    { code: targetCode },
+    { $set: { code: newCode, name: newName, updatedAt: new Date() } }
+  );
+
+  if (newCode !== targetCode) {
+    await db.collection('departments').updateOne(
+      { code: targetCode },
+      { $set: { code: newCode, name: newName } },
+      { upsert: true }
+    );
+    await db.collection('complaints').updateMany(
+      { category: targetCode },
+      { $set: { category: newCode } }
+    );
+    await db.collection('users').updateMany(
+      { departmentId: targetCode },
+      { $set: { departmentId: newCode } }
+    );
+  } else {
+    await db.collection('departments').updateOne(
+      { code: targetCode },
+      { $set: { name: newName } },
+      { upsert: true }
+    );
+  }
+
+  return c.json({ category: { code: newCode, name: newName } });
+});
 api.get('/staff', async c => { if (getUser(c).role !== 'admin') return c.json({ error: 'Forbidden' }, 403); const docs = await (await getDb()).collection('users').find({ role: { $in: ['staff', 'admin'] } }).sort({ name: 1 }).toArray(); return c.json({ items: docs.map(publicUser) }); });
 api.post('/staff', async c => {
   const admin = getUser(c); if (admin.role !== 'admin') return c.json({ error: 'Forbidden' }, 403);
@@ -94,6 +157,7 @@ api.patch('/staff/:id', async c => {
   if (admin._id.equals(id) && (body.data.role !== 'admin' || !body.data.active)) return c.json({ error: 'You cannot disable your own admin access' }, 409);
   const db = await getDb(), target = await db.collection('users').findOne({ _id: id, role: { $in: ['staff', 'admin'] } });
   if (!target) return c.json({ error: 'Not found' }, 404);
+  if (String(target.email || '').toLowerCase() === 'admin@gmail.com') return c.json({ error: 'Super admin account (admin@gmail.com) cannot be modified' }, 403);
   if (body.data.role === 'staff' && !body.data.departmentId) return c.json({ error: 'Department required' }, 400);
   if (body.data.departmentId && !await db.collection('departments').findOne({ code: body.data.departmentId })) return c.json({ error: 'Unknown department' }, 400);
   const updated = { role: body.data.role, departmentId: body.data.role === 'staff' ? body.data.departmentId : null, active: body.data.active };
@@ -105,7 +169,7 @@ api.get('/complaints', async c => {
   const user = getUser(c), db = await getDb(), query: any = user.role === 'student' ? { studentId: user._id } : user.role === 'staff' ? { departmentId: user.departmentId } : {};
   const status = c.req.query('status'), category = c.req.query('category');
   if (status && statuses.includes(status as any)) query.status = status;
-  if (category && categories.includes(category as any)) query.category = category;
+  if (category) query.category = category;
   const page = Math.max(1, Number(c.req.query('page')) || 1);
   const docs = await db.collection('complaints').find(query).sort({ createdAt: -1 }).skip((page - 1) * 20).limit(20).toArray();
   return c.json({ items: docs.map(serializeComplaint), total: await db.collection('complaints').countDocuments(query), page });
@@ -121,10 +185,13 @@ api.post('/complaints', async c => {
     const item = form.get('image'); if (item instanceof File && item.size) image = item;
   } else input = await c.req.json().catch(() => null);
   const data = complaintSchema.safeParse(input); if (!data.success) return invalid(c, data.error);
+  const db = await getDb();
+  const validCategory = await db.collection('categories').findOne({ code: data.data.category });
+  if (!validCategory && !['IT', 'Classroom', 'Transport', 'Facilities'].includes(data.data.category)) return c.json({ error: 'Unknown category' }, 400);
   if (image && image.size > maxImageBytes) return c.json({ error: 'Upload too large' }, 413);
   let imageId: ObjectId | undefined;
   try { if (image) imageId = await saveImage(image); } catch { return c.json({ error: 'Invalid image' }, 400); }
-  const db = await getDb(), now = new Date(), displayId = `CC-${now.getTime().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+  const now = new Date(), displayId = `CC-${now.getTime().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
   const doc = { ...data.data, displayId, imageId, studentId: user._id, status: 'Submitted', departmentId: null, createdAt: now, updatedAt: now, timeline: [{ status: 'Submitted', at: now, by: user._id }] };
   const result = await db.collection('complaints').insertOne(doc);
   await notifyTeam(db, { role: 'admin' }, `New complaint ${displayId} submitted`, { complaintId: result.insertedId });
@@ -174,38 +241,7 @@ api.post('/complaints/:id/feedback', async c => {
   const db = await getDb(); const result = await db.collection('complaints').updateOne({ _id: id, studentId: user._id, status: 'Resolved', feedback: { $exists: false } }, { $set: { feedback: body.data } });
   return result.matchedCount ? c.json({ ok: true }) : c.json({ error: 'Complaint is unavailable for feedback' }, 409);
 });
-api.get('/notifications', async c => { const docs = await (await getDb()).collection('notifications').find({ userId: getUser(c)._id }).sort({ createdAt: -1 }).limit(100).toArray(); return c.json({ items: docs.map(n => ({ id: String(n._id), complaintId: n.complaintId ? String(n.complaintId) : null, supportRequestId: n.supportRequestId ? String(n.supportRequestId) : null, text: n.text, read: n.read, createdAt: n.createdAt })) }); });
+api.get('/notifications', async c => { const docs = await (await getDb()).collection('notifications').find({ userId: getUser(c)._id }).sort({ createdAt: -1 }).limit(100).toArray(); return c.json({ items: docs.map(n => ({ id: String(n._id), complaintId: n.complaintId ? String(n.complaintId) : null, text: n.text, read: n.read, createdAt: n.createdAt })) }); });
 api.patch('/notifications/read-all', async c => { await (await getDb()).collection('notifications').updateMany({ userId: getUser(c)._id, read: false }, { $set: { read: true } }); return c.json({ ok: true }); });
 api.patch('/notifications/:id/read', async c => { const id = parseId(c.req.param('id')); if (!id) return c.json({ error: 'Not found' }, 404); const body = z.object({ read: z.boolean() }).safeParse(await c.req.json().catch(() => null)); if (!body.success) return invalid(c, body.error); const result = await (await getDb()).collection('notifications').updateOne({ _id: id, userId: getUser(c)._id }, { $set: { read: body.data.read } }); return result.matchedCount ? c.json({ ok: true }) : c.json({ error: 'Not found' }, 404); });
 api.get('/dashboard/summary', async c => { const user = getUser(c), query: any = user.role === 'student' ? { studentId: user._id } : user.role === 'staff' ? { departmentId: user.departmentId } : {}; const docs = await (await getDb()).collection('complaints').find(query, { projection: { status: 1, category: 1, departmentId: 1 } }).toArray(); const count = (key: string) => docs.reduce((result: Record<string, number>, item: any) => { const value = String(item[key] || 'Unassigned'); result[value] = (result[value] || 0) + 1; return result; }, {}); return c.json({ total: docs.length, submitted: docs.filter(x => x.status === 'Submitted').length, inProgress: docs.filter(x => x.status === 'In Progress').length, resolved: docs.filter(x => x.status === 'Resolved').length, byCategory: count('category'), byDepartment: count('departmentId') }); });
-api.post('/support', async c => {
-  const user = getUser(c); if (user.role !== 'student') return c.json({ error: 'Forbidden' }, 403);
-  const body = z.object({ subject: z.string().trim().min(3).max(160), message: z.string().trim().min(10).max(5000) }).safeParse(await c.req.json().catch(() => null));
-  if (!body.success) return invalid(c, body.error);
-  const db = await getDb(), result = await db.collection('supportRequests').insertOne({ ...body.data, userId: user._id, status: 'Open', createdAt: new Date(), updatedAt: new Date() });
-  await notifyTeam(db, { role: 'admin' }, 'New support request received', { supportRequestId: result.insertedId });
-  return c.json({ id: String(result.insertedId) }, 201);
-});
-api.get('/support', async c => {
-  const docs = await (await getDb()).collection('supportRequests').find({ userId: getUser(c)._id }).sort({ createdAt: -1 }).toArray();
-  return c.json({ items: docs.map(x => ({ id: String(x._id), subject: x.subject, message: x.message, status: x.status, reply: x.reply || null, createdAt: x.createdAt, updatedAt: x.updatedAt || x.createdAt })) });
-});
-api.get('/support/requests', async c => {
-  if (getUser(c).role !== 'admin') return c.json({ error: 'Forbidden' }, 403);
-  const db = await getDb(), page = Math.max(1, Math.min(100000, Number(c.req.query('page')) || 1));
-  const docs = await db.collection('supportRequests').find({}).sort({ createdAt: -1 }).skip((page - 1) * 20).limit(20).toArray();
-  return c.json({ items: docs.map(x => ({ id: String(x._id), subject: x.subject, message: x.message, status: x.status, reply: x.reply || null, createdAt: x.createdAt, updatedAt: x.updatedAt || x.createdAt })), total: await db.collection('supportRequests').countDocuments({}), page });
-});
-api.patch('/support/requests/:id', async c => {
-  if (getUser(c).role !== 'admin') return c.json({ error: 'Forbidden' }, 403);
-  const id = parseId(c.req.param('id')); if (!id) return c.json({ error: 'Not found' }, 404);
-  const body = z.object({ status: z.enum(['Open', 'In Progress', 'Resolved']), reply: z.string().trim().max(2000).optional() }).safeParse(await c.req.json().catch(() => null));
-  if (!body.success) return invalid(c, body.error);
-  const db = await getDb(), request = await db.collection('supportRequests').findOne({ _id: id });
-  if (!request) return c.json({ error: 'Not found' }, 404);
-  const changed = request.status !== body.data.status || body.data.reply !== undefined && request.reply !== body.data.reply;
-  const updated = { status: body.data.status, reply: body.data.reply ?? request.reply ?? null, updatedAt: new Date() };
-  await db.collection('supportRequests').updateOne({ _id: id }, { $set: updated });
-  if (changed) await db.collection('notifications').insertOne({ userId: request.userId, supportRequestId: id, text: `Support request updated: ${request.subject}`, read: false, createdAt: updated.updatedAt });
-  return c.json({ item: { id: String(id), subject: request.subject, message: request.message, ...updated, createdAt: request.createdAt } });
-});

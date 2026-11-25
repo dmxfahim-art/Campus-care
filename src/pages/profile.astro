@@ -1,8 +1,78 @@
 ---
-import AppLayout from '../layouts/AppLayout.astro'; import Sidebar from '../components/Sidebar.astro';
+import AppLayout from '../layouts/AppLayout.astro';
+import Sidebar from '../components/Sidebar.astro';
+import Icon from '../components/Icon.astro';
 ---
-<AppLayout title="My profile — CampusCare"><div class="app-shell"><Sidebar /><main class="main-content"><header class="topbar"><div class="breadcrumb"><span>Student portal</span><b>/</b> My profile</div></header><section class="page-content form-page"><p class="eyebrow">ACCOUNT</p><h1>My profile</h1><p class="subtitle">Update the details used on your CampusCare account.</p><form class="form-card" id="profile-form"><label>Full name<input name="name" required /></label><label>Student ID<input name="id" required /></label><label>Email<input name="email" type="email" required /></label><div class="form-actions"><a class="secondary-button" href="/">Cancel</a><button class="primary-button" type="submit">Save changes →</button></div><p class="form-success" id="success" hidden>Profile saved locally.</p></form></section></main></div><script is:inline>
-  const profileForm=document.querySelector('#profile-form'),result=document.querySelector('#success');
-  (async()=>{try{const state=await CampusStudent.session();profileForm.elements.namedItem('name').value=state.user.name||'';profileForm.elements.namedItem('id').value=state.user.studentId||state.user.id||'';profileForm.elements.namedItem('email').value=state.user.email||''}catch(error){result.textContent=error.message;result.hidden=false}})();
-  profileForm.onsubmit=async e=>{e.preventDefault();const f=new FormData(profileForm),button=profileForm.querySelector('button');button.disabled=true;result.hidden=false;result.textContent='Saving…';try{await CampusStudent.saveProfile({name:String(f.get('name')).trim(),studentId:String(f.get('id')).trim(),email:String(f.get('email')).trim().toLowerCase()});result.textContent='Profile saved.';location.reload()}catch(error){result.textContent=error.message;button.disabled=false}};
-</script></AppLayout>
+<AppLayout title="My profile — CampusCare">
+  <div class="app-shell">
+    <Sidebar active="profile" />
+    <main class="main-content">
+      <header class="topbar">
+        <div class="breadcrumb"><span>Student portal</span><b>/</b> My profile</div>
+      </header>
+      <section class="page-content form-page">
+        <p class="eyebrow">ACCOUNT</p>
+        <h1>My profile</h1>
+        <p class="subtitle">Update the details used on your CampusCare account.</p>
+        <form class="form-card" id="profile-form">
+          <label>Full name
+            <input name="name" required />
+          </label>
+          <label>Student ID
+            <input name="id" required />
+          </label>
+          <label>Email
+            <input name="email" type="email" required />
+          </label>
+          <div class="form-actions">
+            <a class="secondary-button" href="/">Cancel</a>
+            <button class="primary-button" type="submit">Save changes <Icon name="arrow-right" size={16} /></button>
+          </div>
+          <p class="form-success" id="success" hidden></p>
+        </form>
+      </section>
+    </main>
+  </div>
+  <script is:inline>
+    const profileForm = document.querySelector('#profile-form');
+    const result = document.querySelector('#success');
+    const saveBtn = profileForm.querySelector('button[type="submit"]');
+
+    (async () => {
+      try {
+        const state = await CampusStudent.session();
+        profileForm.elements.namedItem('name').value = state.user.name || '';
+        profileForm.elements.namedItem('id').value = state.user.studentId || state.user.id || '';
+        profileForm.elements.namedItem('email').value = state.user.email || '';
+      } catch (error) {
+        result.textContent = error.message;
+        result.className = 'form-error';
+        result.hidden = false;
+      }
+    })();
+
+    profileForm.onsubmit = async e => {
+      e.preventDefault();
+      const f = new FormData(profileForm);
+      CampusCare.setButtonLoading(saveBtn, true, 'Saving changes...');
+      result.hidden = true;
+      try {
+        await CampusStudent.saveProfile({
+          name: String(f.get('name')).trim(),
+          studentId: String(f.get('id')).trim(),
+          email: String(f.get('email')).trim().toLowerCase()
+        });
+        result.className = 'form-success';
+        result.textContent = 'Profile saved.';
+        result.hidden = false;
+        setTimeout(() => location.reload(), 500);
+      } catch (error) {
+        result.className = 'form-error';
+        result.textContent = error.message;
+        result.hidden = false;
+      } finally {
+        CampusCare.setButtonLoading(saveBtn, false);
+      }
+    };
+  </script>
+</AppLayout>

@@ -1,7 +1,98 @@
 ---
-import AppLayout from '../layouts/AppLayout.astro'; import Sidebar from '../components/Sidebar.astro';
+import AppLayout from '../layouts/AppLayout.astro';
+import Sidebar from '../components/Sidebar.astro';
+import Icon from '../components/Icon.astro';
 ---
-<AppLayout title="Complaint details — CampusCare"><div class="app-shell"><Sidebar active="complaints"/><main class="main-content"><header class="topbar"><div class="breadcrumb"><a href="/complaints">My complaints</a><b>/</b> Details</div></header><section class="page-content detail-page"><a class="back-link" href="/complaints">← Back to complaints</a><div id="detail"></div></section></main></div><script is:inline>
-  const id=new URLSearchParams(location.search).get('id'),root=document.querySelector('#detail'),escape=CampusCare.escapeHtml;
-  (async()=>{try{const c=await CampusStudent.complaint(id);if(!c){root.textContent='Complaint not found.';return}root.innerHTML=`<p class="eyebrow">COMPLAINT ${escape(c.displayId)}</p><h1>${escape(c.title)}</h1><p class="subtitle">${escape(c.category)} · ${escape(c.location)}</p><div class="detail-grid"><article class="detail-card"><h2>Complaint timeline</h2><p>Submitted: ${escape(c.createdAt)}</p><p>Current status: <strong>${escape(c.status)}</strong></p><p>Last updated: ${escape(c.updatedAt)}</p><p>${escape(c.description)}</p>${c.imageUrl?`<a class="secondary-button" href="${escape(c.imageUrl)}" target="_blank" rel="noopener">View attachment</a>`:''}<div id="timeline">${c.timeline.map(item=>`<p>${escape(item.action||item.status||'Updated')} · ${escape(String(item.at).slice(0,10))}</p>`).join('')}</div></article><aside class="detail-card"><h2>Department & feedback</h2><p>${escape(c.department)}</p><div id="feedback-area"></div></aside></div>`;const feedback=document.querySelector('#feedback-area');if(c.feedback){feedback.innerHTML=`<h3>Your feedback</h3><p>${escape(c.feedback.rating)} / 5 · ${escape(c.feedback.comment||'')}</p>`}else if(c.status==='Resolved'){feedback.innerHTML='<form id="feedback-form"><h3>How did we do?</h3><label>Rating <select name="rating"><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select></label><label>Comment <textarea name="comment" required></textarea></label><button class="secondary-button">Save feedback</button><p class="form-error" id="feedback-error"></p></form>';document.querySelector('#feedback-form').onsubmit=async e=>{e.preventDefault();const form=e.currentTarget,f=new FormData(form),button=form.querySelector('button');button.disabled=true;try{await CampusStudent.feedback(c.id,Number(f.get('rating')),String(f.get('comment')));feedback.innerHTML='<p class="form-success">Feedback saved.</p>'}catch(error){document.querySelector('#feedback-error').textContent=error.message;button.disabled=false}}}}catch(error){root.innerHTML='<p class="form-error">'+escape(error.message)+'</p>'}})();
-</script></AppLayout>
+<AppLayout title="Complaint details — CampusCare">
+  <div class="app-shell">
+    <Sidebar active="complaints" />
+    <main class="main-content">
+      <header class="topbar">
+        <div class="breadcrumb"><a href="/complaints">My complaints</a><b>/</b> Details</div>
+      </header>
+      <section class="page-content detail-page">
+        <a class="back-link" href="/complaints"><Icon name="arrow-left" size={16} /> Back to complaints</a>
+        <div id="detail"></div>
+      </section>
+    </main>
+  </div>
+  <script is:inline>
+    const id = new URLSearchParams(location.search).get('id');
+    const root = document.querySelector('#detail');
+    const escape = CampusCare.escapeHtml;
+    root.innerHTML = CampusCare.loaderHtml('Loading complaint details...');
+
+    (async () => {
+      try {
+        const c = await CampusStudent.complaint(id);
+        if (!c) {
+          root.innerHTML = '<p class="empty-state">Complaint not found.</p>';
+          return;
+        }
+        root.innerHTML = `
+          <p class="eyebrow">COMPLAINT ${escape(c.displayId)}</p>
+          <h1>${escape(c.title)}</h1>
+          <p class="subtitle">${escape(c.category)} · ${escape(c.location)}</p>
+          <div class="detail-grid">
+            <article class="detail-card">
+              <h2>Complaint timeline</h2>
+              <p>Submitted: ${escape(c.createdAt)}</p>
+              <p>Current status: <strong>${escape(c.status)}</strong></p>
+              <p>Last updated: ${escape(c.updatedAt)}</p>
+              <p>${escape(c.description)}</p>
+              ${c.imageUrl ? `<a class="secondary-button" href="${escape(c.imageUrl)}" target="_blank" rel="noopener">View attachment</a>` : ''}
+              <div id="timeline">
+                ${c.timeline.map(item => `<p>${escape(item.action || item.status || 'Updated')} · ${escape(String(item.at).slice(0, 10))}</p>`).join('')}
+              </div>
+            </article>
+            <aside class="detail-card">
+              <h2>Department & feedback</h2>
+              <p>${escape(c.department)}</p>
+              <div id="feedback-area"></div>
+            </aside>
+          </div>
+        `;
+        const feedback = document.querySelector('#feedback-area');
+        if (c.feedback) {
+          feedback.innerHTML = `<h3>Your feedback</h3><p>${escape(c.feedback.rating)} / 5 · ${escape(c.feedback.comment || '')}</p>`;
+        } else if (c.status === 'Resolved') {
+          feedback.innerHTML = `
+            <form id="feedback-form">
+              <h3>How did we do?</h3>
+              <label>Rating 
+                <select name="rating">
+                  <option value="5">5</option>
+                  <option value="4">4</option>
+                  <option value="3">3</option>
+                  <option value="2">2</option>
+                  <option value="1">1</option>
+                </select>
+              </label>
+              <label>Comment 
+                <textarea name="comment" required></textarea>
+              </label>
+              <button class="secondary-button" type="submit">Save feedback</button>
+              <p class="form-error" id="feedback-error"></p>
+            </form>
+          `;
+          const feedbackForm = document.querySelector('#feedback-form');
+          const saveBtn = feedbackForm.querySelector('button');
+          feedbackForm.onsubmit = async e => {
+            e.preventDefault();
+            const f = new FormData(feedbackForm);
+            CampusCare.setButtonLoading(saveBtn, true, 'Saving feedback...');
+            try {
+              await CampusStudent.feedback(c.id, Number(f.get('rating')), String(f.get('comment')));
+              feedback.innerHTML = '<p class="form-success">Feedback saved.</p>';
+            } catch (error) {
+              document.querySelector('#feedback-error').textContent = error.message;
+              CampusCare.setButtonLoading(saveBtn, false);
+            }
+          };
+        }
+      } catch (error) {
+        root.innerHTML = '<p class="form-error">' + escape(error.message) + '</p>';
+      }
+    })();
+  </script>
+</AppLayout>

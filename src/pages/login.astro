@@ -1,6 +1,7 @@
 ---
 import AppLayout from '../layouts/AppLayout.astro';
 import Brand from '../components/Brand.astro';
+import Icon from '../components/Icon.astro';
 ---
 <AppLayout title="Sign in — CampusCare">
   <main class="auth-page">
@@ -16,23 +17,33 @@ import Brand from '../components/Brand.astro';
         <button class="primary-button" type="submit">Sign in</button>
       </form>
       <p class="auth-footer">New to CampusCare? <a href="/register">Create an account</a></p>
-      <p class="auth-footer"><a href="/admin/login">Admin sign in →</a></p>
+      <p class="auth-footer"><a href="/admin/login">Admin sign in <Icon name="arrow-right" size={14} /></a></p>
     </section>
   </main>
   <script is:inline>
-    document.querySelector('#login-form').addEventListener('submit', async event => {
+    const form = document.querySelector('#login-form');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    form.addEventListener('submit', async event => {
       event.preventDefault();
-      const state = CampusCare.getState(), values = new FormData(event.currentTarget);
+      const values = new FormData(event.currentTarget);
       const email = String(values.get('email')).trim().toLowerCase(), password = String(values.get('password'));
-      const error=document.querySelector('#error');error.textContent='';
+      const error = document.querySelector('#error');
+      error.textContent = '';
+      CampusCare.setButtonLoading(submitBtn, true, 'Signing in...');
       try {
         if (await CampusStudent.backendReady()) {
-          const data=await CampusAdmin.request('/auth/login','POST',{email,password});
-          if(data.user.role!=='student'){await CampusAdmin.request('/auth/logout','POST');throw Error('Use the admin and staff sign in page.')}
-          state.user=data.user;state.mode='api';
+          const data = await CampusAdmin.request('/auth/login', 'POST', { email, password });
+          if (data.user.role !== 'student') {
+            await CampusAdmin.request('/auth/logout', 'POST');
+            throw Error('Use the admin and staff sign in page.');
+          }
+          CampusCare.setUser(data.user);
         } else throw Error('The database is not configured yet.');
-        CampusCare.saveState(state);location.href='/';
-      } catch (cause) {error.textContent=cause.message||'Sign in failed.'}
+        location.replace('/');
+      } catch (cause) {
+        error.textContent = cause.message || 'Sign in failed.';
+        CampusCare.setButtonLoading(submitBtn, false);
+      }
     });
   </script>
 </AppLayout>

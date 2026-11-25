@@ -21,17 +21,26 @@ import Brand from '../components/Brand.astro';
     </section>
   </main>
   <script is:inline>
-    document.querySelector('#register-form').addEventListener('submit', async event => {
+    const regForm = document.querySelector('#register-form');
+    const submitBtn = regForm.querySelector('button[type="submit"]');
+    regForm.addEventListener('submit', async event => {
       event.preventDefault();
-      const values = new FormData(event.currentTarget), state = CampusCare.getState();
+      const values = new FormData(event.currentTarget);
       const email = String(values.get('email')).trim().toLowerCase(), id = String(values.get('id')).trim();
-      const name=String(values.get('name')).trim(),password=String(values.get('password')),error=document.querySelector('#error');error.textContent='';
+      const name = String(values.get('name')).trim(), password = String(values.get('password'));
+      const error = document.querySelector('#error');
+      error.textContent = '';
+      CampusCare.setButtonLoading(submitBtn, true, 'Creating account...');
       try {
-        if(await CampusStudent.backendReady()) {
-          const data=await CampusAdmin.request('/auth/register','POST',{name,studentId:id,email,password});state.user=data.user;state.mode='api';
+        if (await CampusStudent.backendReady()) {
+          const data = await CampusAdmin.request('/auth/register', 'POST', { name, studentId: id, email, password });
+          CampusCare.setUser(data.user);
         } else throw Error('The database is not configured yet.');
-        CampusCare.saveState(state);location.href='/';
-      } catch(cause){error.textContent=cause.message||'Registration failed.'}
+        location.replace('/');
+      } catch (cause) {
+        error.textContent = cause.message || 'Registration failed.';
+        CampusCare.setButtonLoading(submitBtn, false);
+      }
     });
   </script>
 </AppLayout>
