@@ -1,4 +1,33 @@
 ---
-import AppLayout from '../layouts/AppLayout.astro'; import Sidebar from '../components/Sidebar.astro';
+import AppLayout from '../layouts/AppLayout.astro';
+import Sidebar from '../components/Sidebar.astro';
 ---
-<AppLayout title="Report a problem — CampusCare"><div class="app-shell"><Sidebar active="report" /><main class="main-content"><header class="topbar"><div class="breadcrumb"><span>Student portal</span><b>/</b> New complaint</div><div class="top-actions"><div class="top-avatar">TR</div></div></header><section class="page-content form-page"><div class="welcome-row"><div><p class="eyebrow">HELP US IMPROVE CAMPUS</p><h1>Report a problem</h1><p class="subtitle">Give us a few details and we’ll send it to the right team.</p></div></div><form id="report-form" class="form-card"><div class="form-section"><span class="step">01</span><div><h2>What’s happening?</h2><p>Be as specific as you can so the team can help faster.</p></div></div><label>Title<input required name="title" placeholder="e.g. Projector not working in Room 204" /></label><div class="form-grid"><label>Category<select required name="category"><option value="IT">IT & Wi-Fi</option><option>Classroom</option><option>Transport</option><option>Facilities</option></select></label><label>Location<input required name="location" placeholder="e.g. Main library, floor 2" /></label></div><label>Description<textarea required name="description" rows="5" placeholder="Tell us what you noticed, when it started, and anything else that may help..."></textarea></label><label>Photo <span class="optional">Optional</span><input name="image" type="file" accept="image/png,image/jpeg" /></label><div class="form-actions"><a href="/" class="secondary-button">Cancel</a><button class="primary-button" type="submit">Submit complaint →</button></div></form></section></main></div><script is:inline>document.querySelector('#report-form').addEventListener('submit',e=>{e.preventDefault();const form=new FormData(e.currentTarget),state=CampusCare.getState(),now=new Date().toISOString().slice(0,10),id='CC-'+(1050+state.complaints.length);state.complaints.unshift({id,title:form.get('title'),description:form.get('description'),category:form.get('category'),location:form.get('location'),status:'Submitted',department:'Unassigned',student:state.user.name,createdAt:now,updatedAt:now});state.notifications.unshift({id:Date.now(),text:'Your complaint '+id+' was submitted successfully.',read:false,time:'Just now'});CampusCare.saveState(state);location.href='/complaint?id='+id});</script></AppLayout>
+<AppLayout title="Report a problem — CampusCare">
+  <div class="app-shell">
+    <Sidebar active="report" />
+    <main class="main-content">
+      <header class="topbar"><div class="breadcrumb"><span>Student portal</span><b>/</b> New complaint</div><div class="top-actions"><div class="top-avatar" id="report-avatar"></div></div></header>
+      <section class="page-content form-page">
+        <div class="welcome-row"><div><p class="eyebrow">HELP US IMPROVE CAMPUS</p><h1>Report a problem</h1><p class="subtitle">Give us a few details and we’ll send it to the right team.</p></div></div>
+        <form id="report-form" class="form-card">
+          <div class="form-section"><span class="step">01</span><div><h2>What’s happening?</h2><p>Be as specific as you can so the team can help faster.</p></div></div>
+          <label>Title<input required name="title" placeholder="e.g. Projector not working in Room 204" /></label>
+          <div class="form-grid"><label>Category<select required name="category"><option value="IT">IT & Wi-Fi</option><option>Classroom</option><option>Transport</option><option>Facilities</option></select></label><label>Location<input required name="location" placeholder="e.g. Main library, floor 2" /></label></div>
+          <label>Description<textarea required name="description" rows="5" placeholder="Tell us what you noticed, when it started, and anything else that may help..."></textarea></label>
+          <label>Photo <span class="optional">Optional</span><input name="image" type="file" accept="image/png,image/jpeg" /></label>
+          <p class="subtitle">Admins see the report and any photo. Leave out your name or other identifying details if you want to stay anonymous to them.</p>
+          <div class="form-actions"><a href="/" class="secondary-button">Cancel</a><button class="primary-button" type="submit">Submit complaint →</button></div>
+        </form>
+      </section>
+    </main>
+  </div>
+  <script is:inline>
+    const reportState = CampusCare.getState();
+    if(reportState.user)document.querySelector('#report-avatar').textContent = reportState.user.name.trim().split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase();
+    document.querySelector('#report-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      const button=event.currentTarget.querySelector('button[type="submit"]');button.disabled=true;
+      try{const id=await CampusStudent.report(new FormData(event.currentTarget));location.href='/complaint?id='+encodeURIComponent(id)}catch(error){let message=document.querySelector('#report-error');if(!message){message=document.createElement('p');message.id='report-error';message.className='form-error';event.currentTarget.append(message)}message.textContent=error.message;button.disabled=false}
+    });
+  </script>
+</AppLayout>

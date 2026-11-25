@@ -1,4 +1,37 @@
 ---
 import AppLayout from '../layouts/AppLayout.astro';
+import Brand from '../components/Brand.astro';
 ---
-<AppLayout title="Create account — CampusCare"><main class="auth-page"><div class="auth-brand"><span class="brand-mark">✦</span> Campus<span>Care</span></div><section class="auth-card"><p class="eyebrow">JOIN YOUR CAMPUS</p><h1>Create your account</h1><p class="auth-subtitle">Use your university details to get started.</p><form id="register-form"><label>Full name<input name="name" required placeholder="Tasnim Turin" /></label><label>Student ID<input name="id" required placeholder="R-22" /></label><label>University email<input name="email" type="email" required placeholder="you@university.edu" /></label><label>Password<input name="password" type="password" required minlength="6" /></label><div class="form-error" id="error"></div><button class="primary-button" type="submit">Create account →</button></form><p class="auth-footer">Already registered? <a href="/login">Sign in</a></p></section></main><script is:inline>document.querySelector('#register-form').addEventListener('submit',e=>{e.preventDefault();const f=new FormData(e.currentTarget),state=CampusCare.getState(),email=String(f.get('email')).toLowerCase();if(state.users.some(u=>u.email.toLowerCase()===email)){document.querySelector('#error').textContent='An account with this email already exists.';return}const user={name:f.get('name'),id:f.get('id'),email,password:f.get('password'),role:'student'};state.users.push(user);state.user=user;CampusCare.saveState(state);location.href='/'});</script></AppLayout>
+<AppLayout title="Create account — CampusCare">
+  <main class="auth-page">
+    <div class="auth-brand"><Brand /></div>
+    <section class="auth-card">
+      <p class="eyebrow">JOIN YOUR CAMPUS</p>
+      <h1>Create your account</h1>
+      <p class="auth-subtitle">Use your university details to get started.</p>
+      <form id="register-form">
+        <label>Full name<input name="name" required autocomplete="name" placeholder="Your full name" /></label>
+        <label>Student ID<input name="id" required placeholder="Your student ID" /></label>
+        <label>University email<input name="email" type="email" required autocomplete="email" placeholder="you@university.edu" /></label>
+        <label>Password<input name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters" /></label>
+        <p class="form-error" id="error" role="alert"></p>
+        <button class="primary-button" type="submit">Create account</button>
+      </form>
+      <p class="auth-footer">Already registered? <a href="/login">Sign in</a></p>
+    </section>
+  </main>
+  <script is:inline>
+    document.querySelector('#register-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      const values = new FormData(event.currentTarget), state = CampusCare.getState();
+      const email = String(values.get('email')).trim().toLowerCase(), id = String(values.get('id')).trim();
+      const name=String(values.get('name')).trim(),password=String(values.get('password')),error=document.querySelector('#error');error.textContent='';
+      try {
+        if(await CampusStudent.backendReady()) {
+          const data=await CampusAdmin.request('/auth/register','POST',{name,studentId:id,email,password});state.user=data.user;state.mode='api';
+        } else throw Error('The database is not configured yet.');
+        CampusCare.saveState(state);location.href='/';
+      } catch(cause){error.textContent=cause.message||'Registration failed.'}
+    });
+  </script>
+</AppLayout>

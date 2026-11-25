@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { MongoClient, type Db } from 'mongodb';
 
 let client: MongoClient | undefined;
@@ -14,9 +15,12 @@ export function getDb(): Promise<Db> {
         db.collection('users').createIndex({ email: 1 }, { unique: true }),
         db.collection('users').createIndex({ studentId: 1 }, { unique: true }),
         db.collection('sessions').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+        db.collection('sessions').createIndex({ tokenHash: 1 }, { unique: true }),
         db.collection('complaints').createIndex({ displayId: 1 }, { unique: true }),
         db.collection('complaints').createIndex({ studentId: 1, createdAt: -1 }),
         db.collection('notifications').createIndex({ userId: 1, createdAt: -1 }),
+        db.collection('supportRequests').createIndex({ userId: 1, createdAt: -1 }),
+        db.collection('supportRequests').createIndex({ createdAt: -1 }),
         db.collection('departments').createIndex({ code: 1 }, { unique: true }),
       ]);
       for (const [code, name] of [['IT', 'IT Department'], ['Classroom', 'Classroom Services'], ['Transport', 'Transport Office'], ['Facilities', 'Facilities Department']]) {

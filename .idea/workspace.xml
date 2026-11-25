@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="4f87d0bc-5b58-46b3-838f-85490f1aabf6" name="Changes" comment="" />
+    <list default="true" id="4f87d0bc-5b58-46b3-838f-85490f1aabf6" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -24,23 +26,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.6013691632533855" />
-      <entry key="MS500" value="4.2544638476070205" />
-      <entry key="S2" value="8.359665941409427" />
-      <entry key="S5" value="14.305226982987657" />
-      <entry key="S10" value="20.75688171680874" />
-      <entry key="S30" value="31.377757772879665" />
-      <entry key="S60" value="38.46680200802211" />
-      <entry key="M2" value="47.287947330717195" />
-      <entry key="M5" value="67.04276729429513" />
-      <entry key="M10" value="84.71493088771405" />
-      <entry key="M15" value="93.49983882854252" />
-      <entry key="M30" value="104.4022849669309" />
-      <entry key="H1" value="110.82215831096313" />
-      <entry key="H2" value="114.31047394891655" />
-      <entry key="H4" value="116.12931205766166" />
-      <entry key="D1" value="117.68455031694417" />
-      <entry key="W1" value="117.95484502579446" />
+      <entry key="MS100" value="1.3730349092466105" />
+      <entry key="MS500" value="3.5868600509341704" />
+      <entry key="S2" value="6.901322935268539" />
+      <entry key="S5" value="10.38654480602118" />
+      <entry key="S10" value="12.66386294750896" />
+      <entry key="S30" value="14.741529761213531" />
+      <entry key="S60" value="15.40456307133465" />
+      <entry key="M2" value="17.446642304122406" />
+      <entry key="M5" value="33.90962543204759" />
+      <entry key="M10" value="59.88101151230281" />
+      <entry key="M15" value="76.32190502923272" />
+      <entry key="M30" value="99.86621604158672" />
+      <entry key="H1" value="115.32855156746948" />
+      <entry key="H2" value="124.22105818904195" />
+      <entry key="H4" value="128.99395265100895" />
+      <entry key="D1" value="133.14895172834315" />
+      <entry key="W1" value="133.87800561384023" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -62,29 +64,29 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.5104673050333246" />
-      <entry key="MS500" value="4.194121392270446" />
-      <entry key="S2" value="8.331679667018781" />
-      <entry key="S5" value="14.287407197291705" />
-      <entry key="S10" value="20.744326862670523" />
-      <entry key="S30" value="31.371429793153435" />
-      <entry key="S60" value="38.46282990705893" />
-      <entry key="M2" value="47.28549307659731" />
-      <entry key="M5" value="67.04143482448748" />
-      <entry key="M10" value="84.7141156524113" />
-      <entry key="M15" value="93.49924626206472" />
-      <entry key="M30" value="104.40195825723431" />
-      <entry key="H1" value="110.82198599665634" />
-      <entry key="H2" value="114.3103853568906" />
-      <entry key="H4" value="116.12926712673146" />
-      <entry key="D1" value="117.68454273795884" />
-      <entry key="W1" value="117.95484394083515" />
+      <entry key="MS100" value="1.3074787614001102" />
+      <entry key="MS500" value="3.5374957541709593" />
+      <entry key="S2" value="6.876643844464642" />
+      <entry key="S5" value="10.371858135500652" />
+      <entry key="S10" value="12.654946334672386" />
+      <entry key="S30" value="14.738077884501337" />
+      <entry key="S60" value="15.402761143468819" />
+      <entry key="M2" value="17.445633442768234" />
+      <entry key="M5" value="33.90889561656714" />
+      <entry key="M10" value="59.88040221391359" />
+      <entry key="M15" value="76.32139802695849" />
+      <entry key="M30" value="99.86589122916487" />
+      <entry key="H1" value="115.3283659368143" />
+      <entry key="H2" value="124.22095872163645" />
+      <entry key="H4" value="128.99390113552363" />
+      <entry key="D1" value="133.14894288420726" />
+      <entry key="W1" value="133.8780043439235" />
     </decayedShown>
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 3,
-  "fromUser": false
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 3,
+  &quot;fromUser&quot;: false
+}</component>
   <component name="ProjectId" id="3MHQ3VLyFWO5vjL81jeGPfhBRy3" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -96,6 +98,7 @@
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.MCP Project settings loaded": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
     "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
@@ -126,10 +129,16 @@
       <option name="presentableId" value="Default" />
       <updated>1795004813726</updated>
       <workItem from="1795004814739" duration="4122000" />
+      <workItem from="1795012302223" duration="2042000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="UnknownFeatures">
+    <option featureType="dependencySupport" implementationName="executable:docker" />
+    <option featureType="dependencySupport" implementationName="executable:kubectl" />
+    <option featureType="dependencySupport" implementationName="javascript:npm:astro" />
   </component>
 </project>

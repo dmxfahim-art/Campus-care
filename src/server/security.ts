@@ -21,7 +21,7 @@ export async function verifyPassword(password: string, stored: string) {
   return timingSafeEqual(actual, Buffer.from(hex, 'hex'));
 }
 const digest = (value: string) => createHash('sha256').update(value).digest('hex');
-export function publicUser(user: any) { return { id: String(user._id), name: user.name, studentId: user.studentId, email: user.email, role: user.role, departmentId: user.departmentId || null }; }
+export function publicUser(user: any) { return { id: String(user._id), name: user.name, studentId: user.studentId, email: user.email, role: user.role, departmentId: user.departmentId || null, active: user.active !== false }; }
 export async function createSession(c: Context, userId: ObjectId) {
   const token = randomBytes(32).toString('hex');
   const db = await getDb();
@@ -33,7 +33,7 @@ export async function currentUser(c: Context) {
   if (!token) return null;
   const db = await getDb();
   const session = await db.collection('sessions').findOne({ tokenHash: digest(token), expiresAt: { $gt: new Date() } });
-  return session ? db.collection('users').findOne({ _id: session.userId as ObjectId }) : null;
+  return session ? db.collection('users').findOne({ _id: session.userId as ObjectId, active: { $ne: false } }) : null;
 }
 export async function destroySession(c: Context) {
   const token = getCookie(c, cookieName);

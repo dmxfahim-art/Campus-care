@@ -17,6 +17,7 @@
     "@astrojs/node": "^11.1.13",
     "@astrojs/vercel": "^11.0.22",
     "astro": "latest",
+    "dotenv": "^18.0.10",
     "hono": "^4.13.19",
     "mongodb": "^7.9.0",
     "typescript": "latest",

@@ -1,9 +1,10 @@
 ---
 const path = Astro.url.pathname;
 const active = Astro.props.active || (path === '/' ? 'overview' : path === '/complaint' ? 'complaints' : path.slice(1));
+import Brand from './Brand.astro';
 ---
 <aside class="sidebar">
-  <a class="brand" href="/"><span class="brand-mark">✦</span><span>Campus<span>Care</span></span></a>
+  <Brand light />
   <div class="workspace-label">STUDENT PORTAL</div>
   <nav aria-label="Main navigation">
     <a class={`nav-item ${active === 'overview' ? 'active' : ''}`} href="/"><span>⌂</span> Overview</a>
@@ -20,14 +21,14 @@ const active = Astro.props.active || (path === '/' ? 'overview' : path === '/com
   </div>
 </aside>
 <script is:inline>
-  queueMicrotask(() => {
+  queueMicrotask(async () => {
     const state = CampusCare.getState(), user = state.user;
     if (!user) return;
     const sidebar = document.querySelector('.sidebar');
     sidebar.querySelector('[data-user-name]').textContent = user.name;
-    sidebar.querySelector('[data-user-meta]').textContent = `${user.role} · ${user.id}`;
+    sidebar.querySelector('[data-user-meta]').textContent = `${user.role} · ${user.studentId || user.id}`;
     sidebar.querySelector('[data-user-avatar]').textContent = user.name.trim().split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase();
-    sidebar.querySelector('[data-complaint-count]').textContent = state.complaints.filter(c => user.role !== 'student' || c.student === user.name).length;
+    try { sidebar.querySelector('[data-complaint-count]').textContent = (await CampusStudent.complaints()).length; } catch { sidebar.querySelector('[data-complaint-count]').textContent = '0'; }
     sidebar.querySelector('[data-sign-out]').addEventListener('click', () => CampusCare.logout());
   });
 </script>
