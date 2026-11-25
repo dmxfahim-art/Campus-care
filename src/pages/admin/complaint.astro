@@ -1,0 +1,110 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import AdminSidebar from '../../components/AdminSidebar.astro';
+import Icon from '../../components/Icon.astro';
+---
+<AppLayout title="Admin complaint detail — CampusCare">
+  <div class="app-shell">
+    <AdminSidebar active="complaints" />
+    <main class="main-content">
+      <header class="topbar">
+        <div class="breadcrumb"><a href="/admin/complaints">Complaints</a><b>/</b> Details</div>
+      </header>
+      <section class="page-content detail-page">
+        <a class="back-link" href="/admin/complaints"><Icon name="arrow-left" size={16} /> Back to complaints</a>
+        <div id="admin-detail"></div>
+      </section>
+    </main>
+  </div>
+  <script is:inline>
+    const escape = CampusCare.escapeHtml;
+    const id = new URLSearchParams(location.search).get('id');
+    const root = document.querySelector('#admin-detail');
+    root.innerHTML = CampusCare.loaderHtml('Loading complaint details...');
+
+    (async () => {
+      try {
+        const [complaint, departments] = await Promise.all([CampusAdmin.complaint(id), CampusAdmin.departments()]);
+        if (!complaint) {
+          root.innerHTML = '<p class="empty-state">Complaint not found.</p>';
+          return;
+        }
+        const options = '<option value="">Unassigned</option>' + departments.map(d => `<option value="${escape(d.code)}">${escape(d.name)}</option>`).join('');
+        root.innerHTML = `
+          <p class="eyebrow">COMPLAINT ${escape(complaint.displayId)}</p>
+          <h1>${escape(complaint.title)}</h1>
+          <p class="subtitle">${escape(complaint.category)} · ${escape(complaint.location)}</p>
+          <div class="detail-grid">
+            <article class="detail-card">
+              <h2>Report details</h2>
+              <p>${escape(complaint.description)}</p>
+              ${complaint.imageUrl ? `<a class="secondary-button" href="${escape(complaint.imageUrl)}" target="_blank" rel="noopener">View attachment</a>` : ''}
+              <dl>
+                <dt>Submitted</dt>
+                <dd>${escape(complaint.createdAt)}</dd>
+                <dt>Current status</dt>
+                <dd id="current-status">${escape(complaint.status)}</dd>
+                <dt>Last updated</dt>
+                <dd>${escape(complaint.updatedAt)}</dd>
+              </dl>
+              <h3>Timeline</h3>
+              <div id="timeline">
+                ${complaint.timeline.map(event => `<p>${escape(event.action || event.status || 'Updated')} · ${escape(String(event.at).slice(0, 10))}</p>`).join('') || '<p>Submitted</p>'}
+              </div>
+            </article>
+            <article class="detail-card">
+              <h2>Manage complaint</h2>
+              <form id="admin-update">
+                <label>Department
+                  <select name="department">${options}</select>
+                </label>
+                <label>Status
+                  <select name="status">
+                    <option>Submitted</option>
+                    <option>In Progress</option>
+                    <option>Resolved</option>
+                  </select>
+                </label>
+                <button class="primary-button" type="submit">Save changes</button>
+                <p class="form-success" id="admin-result" role="status"></p>
+              </form>
+            </article>
+          </div>
+        `;
+        const form = document.querySelector('#admin-update');
+        const currentUser = CampusCare.getUser() || (await CampusCare.fetchUser());
+        form.elements.namedItem('department').value = complaint.departmentId || '';
+        form.elements.namedItem('status').value = complaint.status;
+        if (currentUser && currentUser.role === 'staff') {
+          form.elements.namedItem('department').disabled = true;
+          form.elements.namedItem('department').closest('label').hidden = true;
+        }
+        form.onsubmit = async e => {
+          e.preventDefault();
+          const result = document.querySelector('#admin-result');
+          const button = form.querySelector('button');
+          CampusCare.setButtonLoading(button, true, 'Saving changes...');
+          result.textContent = '';
+          try {
+            const department = form.elements.namedItem('department').value;
+            const status = form.elements.namedItem('status').value;
+            if (!department) throw Error('Choose a department before saving.');
+            await CampusAdmin.saveComplaint(id, department, status);
+            const updated = await CampusAdmin.complaint(id);
+            result.className = 'form-success';
+            result.textContent = 'Complaint updated.';
+            document.querySelector('#current-status').textContent = updated.status;
+            document.querySelector('#timeline').innerHTML = updated.timeline.map(event => `<p>${escape(event.action || event.status || 'Updated')} · ${escape(String(event.at).slice(0, 10))}</p>`).join('');
+          } catch (error) {
+            result.className = 'form-error';
+            result.textContent = error.message;
+          } finally {
+            CampusCare.setButtonLoading(button, false);
+          }
+        };
+      } catch (error) {
+        root.innerHTML = '<p class="form-error">' + escape(error.message) + '</p>';
+      }
+    })();
+  </script>
+</AppLayout>

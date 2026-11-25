@@ -16,8 +16,12 @@
     "@astrojs/check": "latest",
     "@astrojs/node": "^11.1.13",
     "@astrojs/vercel": "^11.0.22",
+    "@lucide/astro": "^1.80.0",
     "astro": "latest",
+    "dotenv": "^18.0.10",
     "hono": "^4.13.19",
+    "lucide": "^1.80.0",
+    "lucide-astro": "^0.556.0",
     "mongodb": "^7.9.0",
     "typescript": "latest",
     "zod": "^4.6.7"

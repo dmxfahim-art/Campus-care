@@ -1,6 +1,79 @@
 ---
 import '../styles/global.css';
-const { title = 'CampusCare' } = Astro.props;
 import { storeScript } from '../lib/store';
+import { adminScript } from '../lib/admin-script';
+import { studentScript } from '../lib/student-script';
+const { title = 'CampusCare' } = Astro.props;
 ---
-<html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width" /><title>{title}</title><script is:inline set:html={storeScript}></script><script is:inline>(()=>{const publicRoutes=['/login','/register'];const authState=CampusCare.getState();if(!publicRoutes.includes(location.pathname)&&(!authState.user||!authState.users.some(u=>u.id===authState.user.id&&u.email===authState.user.email))){authState.user=null;CampusCare.saveState(authState);location.replace('/login')}})();</script></head><body><slot /></body></html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="icon" type="image/svg+xml" href="/campuscare-mark.svg" />
+    <title>{title}</title>
+    <script is:inline set:html={storeScript}></script>
+    <script is:inline set:html={adminScript}></script>
+    <script is:inline set:html={studentScript}></script>
+    <script is:inline>
+      async function checkAuthSession() {
+        const path = location.pathname;
+        const cleanPath = path.replace(/\/$/, '') || '/';
+        const isAuthPage = ['/login', '/register', '/admin/login'].includes(cleanPath);
+
+        const user = await CampusCare.fetchUser(true);
+
+        if (!user) {
+          CampusCare.setUser(null);
+          if (!isAuthPage) {
+            location.replace(cleanPath.startsWith('/admin') ? '/admin/login' : '/login');
+          }
+          return;
+        }
+
+        CampusCare.setUser(user);
+        CampusCare.applyUserToDom(user);
+
+        // User is authenticated: keep them inside the app
+        if (isAuthPage) {
+          if (['admin', 'staff'].includes(user.role)) {
+            location.replace('/admin');
+          } else {
+            location.replace('/');
+          }
+          return;
+        }
+
+        // Role-based route guard
+        if (cleanPath.startsWith('/admin')) {
+          if (!['admin', 'staff'].includes(user.role)) {
+            location.replace('/login');
+          } else if (['/admin/team', '/admin/categories'].includes(cleanPath) && user.role !== 'admin') {
+            location.replace('/admin');
+          }
+        } else if (user.role !== 'student') {
+          location.replace('/admin');
+        }
+      }
+
+      checkAuthSession();
+
+      // Ensure back/forward cache or history navigation preserves auth state
+      window.addEventListener('pageshow', (event) => {
+        if (event.persisted) {
+          checkAuthSession();
+        }
+      });
+      window.addEventListener('popstate', () => {
+        checkAuthSession();
+      });
+    </script>
+  </head>
+  <body>
+    <div id="global-loader-bar" aria-hidden="true"></div>
+    <div id="global-loader-pill" aria-live="polite" aria-atomic="true">
+      <span class="pill-spinner"></span>
+      <span id="global-loader-text">Loading...</span>
+    </div>
+    <slot />
+  </body>
+</html>

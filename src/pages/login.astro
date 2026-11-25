@@ -1,4 +1,49 @@
 ---
 import AppLayout from '../layouts/AppLayout.astro';
+import Brand from '../components/Brand.astro';
+import Icon from '../components/Icon.astro';
 ---
-<AppLayout title="Sign in — CampusCare"><main class="auth-page"><div class="auth-brand"><span class="brand-mark">✦</span> Campus<span>Care</span></div><section class="auth-card"><p class="eyebrow">WELCOME BACK</p><h1>Sign in to CampusCare</h1><p class="auth-subtitle">Track your complaints and stay connected to campus.</p><form id="login-form"><label>Email<input name="email" type="email" required value="tasnim@example.com" /></label><label>Password<input name="password" type="password" required placeholder="Minimum 6 characters" /></label><div class="form-error" id="error"></div><button class="primary-button" type="submit">Sign in →</button></form><p class="auth-footer">New to CampusCare? <a href="/register">Create an account</a></p></section></main><script is:inline>document.querySelector('#login-form').addEventListener('submit',e=>{e.preventDefault();const state=CampusCare.getState(),f=new FormData(e.currentTarget),email=String(f.get('email')).toLowerCase(),password=String(f.get('password')),user=state.users.find(u=>u.email.toLowerCase()===email&&u.password===password);if(!user){document.querySelector('#error').textContent='Incorrect email or password.';return}state.user=user;CampusCare.saveState(state);location.href='/'});</script></AppLayout>
+<AppLayout title="Sign in — CampusCare">
+  <main class="auth-page">
+    <div class="auth-brand"><Brand /></div>
+    <section class="auth-card">
+      <p class="eyebrow">WELCOME BACK</p>
+      <h1>Welcome to CampusCare</h1>
+      <p class="auth-subtitle">A simpler way to make campus better, together.</p>
+      <form id="login-form">
+        <label>Email<input name="email" type="email" autocomplete="email" required placeholder="you@university.edu" /></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" required placeholder="Enter your password" /></label>
+        <p class="form-error" id="error" role="alert"></p>
+        <button class="primary-button" type="submit">Sign in</button>
+      </form>
+      <p class="auth-footer">New to CampusCare? <a href="/register">Create an account</a></p>
+      <p class="auth-footer"><a href="/admin/login">Admin sign in <Icon name="arrow-right" size={14} /></a></p>
+    </section>
+  </main>
+  <script is:inline>
+    const form = document.querySelector('#login-form');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const values = new FormData(event.currentTarget);
+      const email = String(values.get('email')).trim().toLowerCase(), password = String(values.get('password'));
+      const error = document.querySelector('#error');
+      error.textContent = '';
+      CampusCare.setButtonLoading(submitBtn, true, 'Signing in...');
+      try {
+        if (await CampusStudent.backendReady()) {
+          const data = await CampusAdmin.request('/auth/login', 'POST', { email, password });
+          if (data.user.role !== 'student') {
+            await CampusAdmin.request('/auth/logout', 'POST');
+            throw Error('Use the admin and staff sign in page.');
+          }
+          CampusCare.setUser(data.user);
+        } else throw Error('The database is not configured yet.');
+        location.replace('/');
+      } catch (cause) {
+        error.textContent = cause.message || 'Sign in failed.';
+        CampusCare.setButtonLoading(submitBtn, false);
+      }
+    });
+  </script>
+</AppLayout>

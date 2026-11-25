@@ -1,0 +1,7 @@
+---
+const { light = false } = Astro.props;
+---
+<a class:list={['brand', { 'brand-light': light }]} href="/" aria-label="CampusCare home">
+  <img src="/campuscare-mark.svg" width="42" height="42" alt="" />
+  <span class="brand-wordmark">Campus<span>Care</span></span>
+</a>
